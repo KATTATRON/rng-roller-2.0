@@ -559,7 +559,7 @@ function sellCharacter(character) {
       }
     }
   }
-  const perItem = Math.floor(baseCoins * (character.shiny ? 1 : 0.5));
+  const perItem = Math.floor(baseCoins * (character.shiny ? 3 : 0.5));
   const total = perItem * qty;
   const confirmMsg = `Are you sure you want to sell: ${qty}x ${character.name}?\nYou will receive ${total} coin${total === 1 ? '' : 's'}.`;
   if (!confirm(confirmMsg)) return;
@@ -582,7 +582,7 @@ function openPreview(character) {
   body.innerHTML = `
     <div class="preview-icon">${character.icon}</div>
     <div class="result-meta">${character.tier} • ${character.chance}</div>
-    <div class="result-meta">Earned ${/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1))} coin${(/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1))) === 1 ? '' : 's'}!</div>
+    <div class="result-meta">Earned ${/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * (character.shiny ? 3 : 1))} coin${(/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * (character.shiny ? 3 : 1))) === 1 ? '' : 's'}!</div>
   `;
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
@@ -1346,7 +1346,7 @@ function getRollMessage(character) {
 }
 
 function showCharacterResult(character, earned) {
-  const displayEarned = typeof earned === 'number' ? earned : Math.floor((character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1));
+  const displayEarned = typeof earned === 'number' ? earned : Math.floor((character.coins || 0) * (character.shiny ? 3 : 1));
   resultEl.innerHTML = `
     <div class="result-icon">${character.icon}</div>
     <div class="result-title">${character.name}</div>
@@ -1372,8 +1372,8 @@ function showCharacterResult(character, earned) {
 }
 
 function showTwoResults(c1, c2, e1, e2) {
-  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * 0.75 * (c1.shiny ? 1.5 : 1));
-  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * 0.75 * (c2.shiny ? 1.5 : 1));
+  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * (c1.shiny ? 3 : 1));
+  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * (c2.shiny ? 3 : 1));
   resultEl.innerHTML = `
     <div class="two-results">
       <div class="result-block">
@@ -1402,9 +1402,9 @@ function showTwoResults(c1, c2, e1, e2) {
 }
 
 function showThreeResults(c1, c2, c3, e1, e2, e3) {
-  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * 0.75 * (c1.shiny ? 1.5 : 1));
-  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * 0.75 * (c2.shiny ? 1.5 : 1));
-  const displayed3 = typeof e3 === 'number' ? e3 : Math.floor((c3.coins || 0) * 0.75 * (c3.shiny ? 1.5 : 1));
+  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * (c1.shiny ? 3 : 1));
+  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * (c2.shiny ? 3 : 1));
+  const displayed3 = typeof e3 === 'number' ? e3 : Math.floor((c3.coins || 0) * (c3.shiny ? 3 : 1));
   resultEl.innerHTML = `
     <div class="three-results">
       <div class="result-block">
@@ -1537,8 +1537,8 @@ function startRolling() {
     if (/^cat-secrett/i.test(character.id)) {
       earnedCoins = 100000;
     } else {
-      // Base coins are reduced to 75%. Shiny characters get a 1.5x multiplier.
-      const baseValue = (character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1);
+      // Base coins use the character's coins value. Shiny characters get a 3x multiplier.
+      const baseValue = (character.coins || 0) * (character.shiny ? 3 : 1);
       earnedCoins = Math.floor(baseValue * coinMultiplier * rebirthMultiplier);
     }
     coinTotal += earnedCoins;
@@ -1564,7 +1564,7 @@ function startRolling() {
     let character2 = null;
     if (upgrades.secondRoll) {
       character2 = weightedRandom(allCharacters, { goldenMultiplier: 1 });
-      const baseValue2 = (character2.coins || 0) * 0.75 * (character2.shiny ? 1.5 : 1);
+      const baseValue2 = (character2.coins || 0) * (character2.shiny ? 3 : 1);
       const earnedCoins2 = Math.floor(baseValue2 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins2;
       rolledCharacters[character2.id] = (rolledCharacters[character2.id] || 0) + 1;
@@ -1573,7 +1573,7 @@ function startRolling() {
     let earnedCoins3;
     if (upgrades.thirdRoll) {
       character3 = weightedRandom(allCharacters, { goldenMultiplier: 1 });
-      const baseValue3 = (character3.coins || 0) * 0.75 * (character3.shiny ? 1.5 : 1);
+      const baseValue3 = (character3.coins || 0) * (character3.shiny ? 3 : 1);
       earnedCoins3 = Math.floor(baseValue3 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins3;
       rolledCharacters[character3.id] = (rolledCharacters[character3.id] || 0) + 1;
