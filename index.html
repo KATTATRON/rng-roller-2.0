@@ -21,12 +21,16 @@
         <button id="useLuckPotionButton" class="potion-button">Luck Potions: 0</button>
         <button id="useCoinPotionButton" class="potion-button">Coin Potions: 0</button>
       </div>
-      <button id="rollButton" class="roll-button">Roll</button>
+      <div class="roll-controls">
+        <button id="rollButton" class="roll-button">Roll</button>
+        <div id="rollSpeedDisplay" class="secondary-button roll-speed-display">Roll speed: 2.5s</div>
+      </div>
       <div id="autoRollContainer"></div>
     </div>
 
     <div class="controls">
       <button id="rollCountButton" class="secondary-button">Roll count: 0</button>
+      <button id="rareRollCountButton" class="secondary-button">Rarest rolled: none</button>
       <button id="coinCountButton" class="secondary-button">Coins: 0</button>
       <button id="indexButton" class="secondary-button">Index</button>
       <button id="upgradeButton" class="secondary-button">Upgrades</button>
@@ -182,37 +186,56 @@
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Coins Boost Tier 1</div>
-              <div class="item-meta">+50% coins — Costs 1000 coins</div>
+              <div class="item-meta">+50% coins — Costs 2000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyCoin1Button" class="buy-button">Buy 1000</button>
+              <button id="buyCoin1Button" class="buy-button">Buy 2000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Coins Boost Tier 2</div>
-              <div class="item-meta">+100% coins — Costs 2500 coins</div>
+              <div class="item-meta">+100% coins — Costs 5000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyCoin2Button" class="buy-button">Buy 2500</button>
+              <button id="buyCoin2Button" class="buy-button">Buy 5000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Coins Boost Tier 3</div>
-              <div class="item-meta">+150% coins — Costs 5000 coins</div>
+              <div class="item-meta">+150% coins — Costs 10000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyCoin3Button" class="buy-button">Buy 5000</button>
+              <button id="buyCoin3Button" class="buy-button">Buy 10000</button>
+            </div>
+          </div>
+          <hr />
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Roll Speed Tier 1</div>
+              <div class="item-meta">Standard speed improved to 2.0s — Costs 2500 coins</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyRollSpeed1Button" class="buy-button">Buy 2500</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
-              <div class="item-name">Coins Boost Tier 4</div>
-              <div class="item-meta">+200% coins — Costs 7500 coins</div>
+              <div class="item-name">Roll Speed Tier 2</div>
+              <div class="item-meta">Standard speed improved to 1.5s — Costs 5000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyCoin4Button" class="buy-button">Buy 7500</button>
+              <button id="buyRollSpeed2Button" class="buy-button">Buy 5000</button>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Roll Speed Tier 3</div>
+              <div class="item-meta">Standard speed improved to 1.0s — Costs 10000 coins</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyRollSpeed3Button" class="buy-button">Buy 10000</button>
             </div>
           </div>
           <hr />
@@ -223,6 +246,15 @@
             </div>
             <div class="item-actions">
               <button id="buySecondRollButton" class="buy-button">Buy 10000</button>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Third Simultaneous Roll</div>
+              <div class="item-meta">Adds a third roll that reveals alongside the others — Costs 100000 coins</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyThirdRollButton" class="buy-button">Buy 100000</button>
             </div>
           </div>
         </div>

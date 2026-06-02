@@ -17,12 +17,15 @@ const buyLuck5Button = document.getElementById('buyLuck5Button');
 const buyCoin1Button = document.getElementById('buyCoin1Button');
 const buyCoin2Button = document.getElementById('buyCoin2Button');
 const buyCoin3Button = document.getElementById('buyCoin3Button');
-const buyCoin4Button = document.getElementById('buyCoin4Button');
+const buyRollSpeed1Button = document.getElementById('buyRollSpeed1Button');
+const buyRollSpeed2Button = document.getElementById('buyRollSpeed2Button');
+const buyRollSpeed3Button = document.getElementById('buyRollSpeed3Button');
 const buySecretLuck1Button = document.getElementById('buySecretLuck1Button');
 const buySecretLuck2Button = document.getElementById('buySecretLuck2Button');
 const buySecretLuck3Button = document.getElementById('buySecretLuck3Button');
 const buySecretLuck4Button = document.getElementById('buySecretLuck4Button');
 const buySecondRollButton = document.getElementById('buySecondRollButton');
+const buyThirdRollButton = document.getElementById('buyThirdRollButton');
 const adminButton = document.getElementById('adminButton');
 const adminMenu = document.getElementById('adminMenu');
 const closeAdminButton = document.getElementById('closeAdminButton');
@@ -45,27 +48,39 @@ const upgrades = {
   autoRoll: false,
   luckTier: 0, // 0 = none, 1-4
   secretLuckTier: 0, // 0 = none, 1-3
-  coinTier: 0 // 0 = none, 1-4
+  coinTier: 0, // 0 = none, 1-3
+  rollSpeedTier: 0, // 0 = base 2.5s, 1 = 2.0s, 2 = 1.5s, 3 = 1.0s
+  thirdRoll: false // third simultaneous roll
 };
 // allow a purchased second simultaneous roll
 upgrades.secondRoll = false;
+
+function getRollSpeedMs() {
+  return rollSpeedMsByTier[upgrades.rollSpeedTier] || 2500;
+}
 
 const luckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30];
 const luckCosts = [0, 500, 1000, 5000, 7500, 12000];
 const secretLuckTiers = [0, 0.05, 0.10, 0.20, 0.25];
 const secretLuckCosts = [0, 2000, 3500, 5000, 10000];
-const coinBoosts = [0, 0.5, 1.0, 1.5, 2.0];
-const coinBoostCosts = [0, 1000, 2500, 5000, 7500];
+const coinBoosts = [0, 0.5, 1.0, 1.5];
+// t1-t3 made 2x more expensive per user request
+const coinBoostCosts = [0, 2000, 5000, 10000];
+const rollSpeedMsByTier = [2500, 2000, 1500, 1000];
+const rollSpeedCosts = [0, 2500, 5000, 10000];
 const autoRollCost = 1000;
 const secondRollCost = 10000;
+const thirdRollCost = 100000;
 let autoRollActive = false;
 let autoRollInterval = null;
 let adminLuckBoost = 0;
 let currentIndexTab = 'normal';
 let rebirthCount = 0;
-const rebirthLimit = 5;
-const rebirthMultipliers = [1, 1.25, 1.5, 1.75, 2.0, 2.25];
-const rebirthCosts = [0, 10000, 15000, 20000, 25000, 30000];
+const rebirthLimit = 8;
+// extended multipliers for 0..8 (0=no rebirth)
+const rebirthMultipliers = [1, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0];
+// Rebirth costs: start at 15k for rebirth 1 and increase by 5k each step up to 8
+const rebirthCosts = [0, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000];
 // Golden dice state
 let goldenDiceCounter = 10;
 let goldenRollActive = false;
@@ -112,6 +127,8 @@ function loadState() {
       upgrades.luckTier = Number(state.upgrades.luckTier) || 0;
       upgrades.secretLuckTier = Number(state.upgrades.secretLuckTier) || 0;
       upgrades.coinTier = Number(state.upgrades.coinTier) || 0;
+      upgrades.rollSpeedTier = Number(state.upgrades.rollSpeedTier) || 0;
+      upgrades.thirdRoll = !!state.upgrades.thirdRoll;
     }
     if (typeof state.rollCount === 'number') rollCount = state.rollCount;
     if (state.rolledCharacters && typeof state.rolledCharacters === 'object') {
@@ -178,6 +195,15 @@ const characters = [
     weight: 1 / 8,
     coins: 8,
     icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><polygon points="60,18 100,102 20,102" fill="#f97316" stroke="#7c2d12" stroke-width="4"/><polygon points="60,30 82,86 38,86" fill="#fef2f2"/><polygon points="60,34 72,62 60,58 48,62" fill="#0ea5e9"/><path d="M36 82 Q60 96 84 82" stroke="#000" stroke-width="6" fill="none" stroke-linecap="round"/></svg>`
+  },
+  {
+    id: 'starry-eye-common-1-6',
+    name: 'Starry Eye',
+    tier: 'Common',
+    chance: '1-6',
+    weight: 1 / 6,
+    coins: 6,
+    icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="60" r="52" fill="#8b5cf6" stroke="#5b21b6" stroke-width="4"/><polygon points="30,48 40,34 50,48 36,42" fill="#fde047" stroke="#b45309" stroke-width="3"/><polygon points="70,48 80,34 90,48 76,42" fill="#fde047" stroke="#b45309" stroke-width="3"/><path d="M38 82 Q60 72 82 82" stroke="#dc2626" stroke-width="5" fill="none" stroke-linecap="round"/></svg>`
   },
   {
     id: 'devil',
@@ -287,7 +313,7 @@ const characters = [
     tier: 'Secret',
     chance: '1-10000',
     weight: 1 / 10000,
-    coins: 10000,
+    coins: 100000,
     icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="68" r="44" fill="#8b5e34" stroke="#4b2911" stroke-width="4"/><polygon points="26,34 38,10 52,34" fill="#8b5e34" stroke="#4b2911" stroke-width="4"/><polygon points="94,34 82,10 68,34" fill="#8b5e34" stroke="#4b2911" stroke-width="4"/><ellipse cx="44" cy="68" rx="8" ry="12" fill="#eef2ff"/><ellipse cx="76" cy="68" rx="8" ry="12" fill="#eef2ff"/><path d="M44 88 Q60 102 76 88" stroke="#1f2937" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M34 78 C38 82 46 84 50 78" stroke="#1f2937" stroke-width="4" fill="none"/><path d="M70 78 C74 82 82 84 86 78" stroke="#1f2937" stroke-width="4" fill="none"/></svg>`
   }
   ,{
@@ -353,6 +379,16 @@ const characters = [
     coins: 5000,
     icon: `<svg viewBox="0 0 140 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SLZ"><g transform="translate(10,10)"><polygon points="40,0 80,0 110,34 80,68 40,68 10,34" fill="#334155" stroke="#0f172a" stroke-width="4"/><polygon points="40,74 80,74 110,108 80,142 40,142 10,108" fill="#7f1d1d" stroke="#2b0a0a" stroke-width="4"/></g></svg>`
   },
+  // Added: The Yellow Legendary (Legendary, 1-5500)
+  {
+    id: 'the-yellow-legendary-1-5500',
+    name: 'The Yellow',
+    tier: 'Legendary',
+    chance: '1-5500',
+    weight: 1 / 5500,
+    coins: 5500,
+    icon: `<svg viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Yellow"><polygon points="70,10 130,110 10,110" fill="#fde047" stroke="#b45309" stroke-width="4"/><polygon points="70,20 116,108 24,108" fill="#facc15" stroke="#92400e" stroke-width="3"/><polygon points="70,30 96,84 44,84" fill="#f59e0b" stroke="#92400e" stroke-width="3"/><path d="M70 38 L82 72 L70 68 L58 72 Z" fill="#fef08a" stroke="#92400e" stroke-width="2"/><path d="M60 100 Q70 90 80 100" stroke="#92400e" stroke-width="3" fill="none"/></svg>`
+  },
   // Added: Four Ways of Light (Legendary, 1-8k)
   {
     id: 'four-ways-light-legendary-1-8000',
@@ -384,14 +420,17 @@ const shinyCharacters = characters.map(character => {
     name: `Shiny ${character.name}`,
     chance: shinyChance,
     weight: (character.weight || 0) / 10,
-    coins: (character.coins || 0) * 5,
+    coins: (character.coins || 0),
     shiny: true,
     icon: String(character.icon).replace('<svg', '<svg class="shiny-svg"')
   };
 });
 const allCharacters = [...characters, ...shinyCharacters];
 
-const cooldownMs = 1000;
+function getRollSpeedMs() {
+  return rollSpeedMsByTier[upgrades.rollSpeedTier] || 2500;
+}
+
 let isRolling = false;
 
 const rolledCharacters = {};
@@ -399,9 +438,39 @@ let rollCount = 0;
 let coinTotal = 0;
 
 const coinCountButton = document.getElementById('coinCountButton');
+const rareRollCountButton = document.getElementById('rareRollCountButton');
+const rollSpeedDisplay = document.getElementById('rollSpeedDisplay');
+
+function updateRollSpeedUI() {
+  if (!rollSpeedDisplay) return;
+  const seconds = (getRollSpeedMs() / 1000).toFixed(1);
+  rollSpeedDisplay.textContent = `Roll speed: ${seconds}s`;
+}
+
+function updateRareRollCount() {
+  if (!rareRollCountButton) return;
+  const rarest = Object.keys(rolledCharacters).reduce((best, characterId) => {
+    const character = allCharacters.find(c => c.id === characterId);
+    if (!character) return best;
+    const weight = typeof character.weight === 'number' && character.weight > 0 ? character.weight : 1;
+    if (!best || weight < best.weight) {
+      return { character, weight };
+    }
+    return best;
+  }, null);
+
+  if (!rarest) {
+    rareRollCountButton.textContent = 'Rarest rolled: none';
+    return;
+  }
+
+  rareRollCountButton.textContent = `Rarest rolled: ${rarest.character.name} (${rarest.character.chance})`;
+}
 
 function updateRollCount() {
   rollCountButton.textContent = `Roll count: ${rollCount}`;
+  updateRareRollCount();
+  updateRollSpeedUI();
 }
 
 function updateCoinCount() {
@@ -443,14 +512,14 @@ function renderIndexMenu() {
       </div>
       <div class="item-actions">
         <button class="view-button" data-id="${character.id}">View</button>
-        <button class="sell-button" data-id="${character.id}">Sell</button>
+        ${/^cat-secrett/i.test(character.id) ? '<button class="sell-button" disabled>Cannot sell</button>' : `<button class="sell-button" data-id="${character.id}">Sell</button>`}
       </div>
     `;
     indexList.appendChild(item);
     const viewBtn = item.querySelector('.view-button');
     const sellBtn = item.querySelector('.sell-button');
     if (viewBtn) viewBtn.addEventListener('click', () => openPreview(character));
-    if (sellBtn) sellBtn.addEventListener('click', () => sellCharacter(character));
+    if (sellBtn && !/^cat-secrett/i.test(character.id)) sellBtn.addEventListener('click', () => sellCharacter(character));
   });
 }
 
@@ -466,6 +535,10 @@ function sellCharacter(character) {
   const qty = Math.max(0, Math.floor(Number(qtyStr) || 0));
   if (!qty || qty < 1 || qty > owned) {
     alert('Invalid quantity');
+    return;
+  }
+  if (/^cat-secrett/i.test(character.id)) {
+    alert('This item cannot be sold.');
     return;
   }
 
@@ -486,7 +559,7 @@ function sellCharacter(character) {
       }
     }
   }
-  const perItem = Math.floor(baseCoins * 0.5);
+  const perItem = Math.floor(baseCoins * (character.shiny ? 1 : 0.5));
   const total = perItem * qty;
   const confirmMsg = `Are you sure you want to sell: ${qty}x ${character.name}?\nYou will receive ${total} coin${total === 1 ? '' : 's'}.`;
   if (!confirm(confirmMsg)) return;
@@ -509,7 +582,7 @@ function openPreview(character) {
   body.innerHTML = `
     <div class="preview-icon">${character.icon}</div>
     <div class="result-meta">${character.tier} • ${character.chance}</div>
-    <div class="result-meta">Earned ${character.coins} coin${character.coins === 1 ? '' : 's'}!</div>
+    <div class="result-meta">Earned ${/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1))} coin${(/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1))) === 1 ? '' : 's'}!</div>
   `;
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
@@ -608,17 +681,17 @@ function applyAdminChanges() {
       if (shinyTarget) {
         character = shinyTarget;
       } else {
-        const base = character;
-        character = {
-          ...base,
-          id: `${base.id}-shiny-admin`,
-          name: `Shiny ${base.name}`,
-          chance: base.chance,
-          weight: (base.weight || 0) / 10,
-          coins: (base.coins || 0) * 5,
-          shiny: true,
-          icon: String(base.icon).replace('<svg', '<svg class="shiny-svg"')
-        };
+          const base = character;
+          character = {
+            ...base,
+            id: `${base.id}-shiny-admin`,
+            name: `Shiny ${base.name}`,
+            chance: base.chance,
+            weight: (base.weight || 0) / 10,
+            coins: (base.coins || 0),
+            shiny: true,
+            icon: String(base.icon).replace('<svg', '<svg class="shiny-svg"')
+          };
         allCharacters.push(character);
       }
     }
@@ -844,8 +917,18 @@ function toggleAutoRoll(btn) {
     btn.textContent = 'Auto Roll: On';
     autoRollInterval = setInterval(() => {
       if (!isRolling) startRolling();
-    }, Math.max(2500, cooldownMs * 2));
+    }, getRollSpeedMs());
   }
+}
+
+function updateAutoRollInterval() {
+  if (!autoRollActive) return;
+  if (autoRollInterval) {
+    clearInterval(autoRollInterval);
+  }
+  autoRollInterval = setInterval(() => {
+    if (!isRolling) startRolling();
+  }, getRollSpeedMs());
 }
 
 function resetAdminAccount() {
@@ -856,6 +939,9 @@ function resetAdminAccount() {
   upgrades.luckTier = 0;
   upgrades.secretLuckTier = 0;
   upgrades.coinTier = 0;
+  upgrades.rollSpeedTier = 0;
+  upgrades.secondRoll = false;
+  upgrades.thirdRoll = false;
   goldenDiceCounter = 10;
   goldenPending = false;
   Object.keys(rolledCharacters).forEach(key => delete rolledCharacters[key]);
@@ -913,11 +999,14 @@ function doRebirth() {
   rebirthCount = next;
   // reset account state as requested
   rollCount = 0;
-  Object.keys(rolledCharacters).forEach(k => delete rolledCharacters[k]);
+  Object.keys(rolledCharacters).forEach(k => {
+    if (!/^cat-secrett/i.test(k)) delete rolledCharacters[k];
+  });
   upgrades.autoRoll = false;
   upgrades.luckTier = 0;
   upgrades.secretLuckTier = 0;
   upgrades.coinTier = 0;
+  upgrades.rollSpeedTier = 0;
   upgrades.secondRoll = false;
   potions.luck = 0;
   potions.coin = 0;
@@ -981,13 +1070,26 @@ function updateUpgradeUI() {
     buyCoin3Button.disabled = !canBuyTier(upgrades.coinTier, 3) || coinTotal < coinBoostCosts[3];
     buyCoin3Button.textContent = upgrades.coinTier >= 3 ? 'Owned' : `Buy ${coinBoostCosts[3]} (Total 150%)`;
   }
-  if (buyCoin4Button) {
-    buyCoin4Button.disabled = !canBuyTier(upgrades.coinTier, 4) || coinTotal < coinBoostCosts[4];
-    buyCoin4Button.textContent = upgrades.coinTier >= 4 ? 'Owned' : `Buy ${coinBoostCosts[4]} (Total 200%)`;
+  if (buyRollSpeed1Button) {
+    buyRollSpeed1Button.disabled = !canBuyTier(upgrades.rollSpeedTier, 1) || coinTotal < rollSpeedCosts[1];
+    buyRollSpeed1Button.textContent = upgrades.rollSpeedTier >= 1 ? 'Owned' : `Buy ${rollSpeedCosts[1]} (2.0s)`;
   }
+  if (buyRollSpeed2Button) {
+    buyRollSpeed2Button.disabled = !canBuyTier(upgrades.rollSpeedTier, 2) || coinTotal < rollSpeedCosts[2];
+    buyRollSpeed2Button.textContent = upgrades.rollSpeedTier >= 2 ? 'Owned' : `Buy ${rollSpeedCosts[2]} (1.5s)`;
+  }
+  if (buyRollSpeed3Button) {
+    buyRollSpeed3Button.disabled = !canBuyTier(upgrades.rollSpeedTier, 3) || coinTotal < rollSpeedCosts[3];
+    buyRollSpeed3Button.textContent = upgrades.rollSpeedTier >= 3 ? 'Owned' : `Buy ${rollSpeedCosts[3]} (1.0s)`;
+  }
+  
   if (buySecondRollButton) {
     buySecondRollButton.disabled = upgrades.secondRoll || coinTotal < secondRollCost;
     buySecondRollButton.textContent = upgrades.secondRoll ? 'Owned' : `Buy ${secondRollCost}`;
+  }
+  if (buyThirdRollButton) {
+    buyThirdRollButton.disabled = upgrades.thirdRoll || coinTotal < thirdRollCost;
+    buyThirdRollButton.textContent = upgrades.thirdRoll ? 'Owned' : `Buy ${thirdRollCost}`;
   }
   if (buySecretLuck1Button) {
     buySecretLuck1Button.disabled = !canBuyTier(upgrades.secretLuckTier, 1) || coinTotal < secretLuckCosts[1];
@@ -1034,6 +1136,21 @@ function buyCoinBoostTier(tier) {
   saveState();
 }
 
+function buyRollSpeedTier(tier) {
+  if (upgrades.rollSpeedTier >= tier) { alert('You already own this tier or higher'); return; }
+  if (!canBuyTier(upgrades.rollSpeedTier, tier)) { alert('You must purchase the previous roll speed tier first.'); return; }
+  const cost = rollSpeedCosts[tier] || 0;
+  if (coinTotal < cost) { alert('Not enough coins'); return; }
+  coinTotal -= cost;
+  upgrades.rollSpeedTier = tier;
+  updateCoinCount();
+  updateUpgradeUI();
+  if (autoRollActive) {
+    updateAutoRollInterval();
+  }
+  saveState();
+}
+
 function buySecretLuckTier(tier) {
   if (upgrades.secretLuckTier >= tier) { alert('You already own this tier or higher'); return; }
   if (!canBuyTier(upgrades.secretLuckTier, tier)) { alert('You must purchase the previous secret luck tier first.'); return; }
@@ -1051,6 +1168,16 @@ function buySecondRoll() {
   if (coinTotal < secondRollCost) { alert('Not enough coins'); return; }
   coinTotal -= secondRollCost;
   upgrades.secondRoll = true;
+  updateCoinCount();
+  updateUpgradeUI();
+  saveState();
+}
+
+function buyThirdRoll() {
+  if (upgrades.thirdRoll) { alert('Third roll already purchased'); return; }
+  if (coinTotal < thirdRollCost) { alert('Not enough coins'); return; }
+  coinTotal -= thirdRollCost;
+  upgrades.thirdRoll = true;
   updateCoinCount();
   updateUpgradeUI();
   saveState();
@@ -1218,12 +1345,13 @@ function getRollMessage(character) {
   return `You rolled ${character.name}!`;
 }
 
-function showCharacterResult(character) {
+function showCharacterResult(character, earned) {
+  const displayEarned = typeof earned === 'number' ? earned : Math.floor((character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1));
   resultEl.innerHTML = `
     <div class="result-icon">${character.icon}</div>
     <div class="result-title">${character.name}</div>
     <div class="result-meta">${character.tier} • Chance ${character.chance}</div>
-    <div class="result-meta">Earned ${character.coins} coin${character.coins === 1 ? '' : 's'}!</div>
+    <div class="result-meta">Earned ${displayEarned} coin${displayEarned === 1 ? '' : 's'}!</div>
   `;
   // brief reveal pulse when the final icon appears
   setTimeout(() => {
@@ -1243,18 +1371,22 @@ function showCharacterResult(character) {
   }, 60);
 }
 
-function showTwoResults(c1, c2) {
+function showTwoResults(c1, c2, e1, e2) {
+  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * 0.75 * (c1.shiny ? 1.5 : 1));
+  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * 0.75 * (c2.shiny ? 1.5 : 1));
   resultEl.innerHTML = `
     <div class="two-results">
       <div class="result-block">
         <div class="result-icon">${c1.icon}</div>
         <div class="result-title">${c1.name}</div>
         <div class="result-meta">${c1.tier} • Chance ${c1.chance}</div>
+        <div class="result-meta">Earned ${displayed1} coin${displayed1 === 1 ? '' : 's'}!</div>
       </div>
       <div class="result-block">
         <div class="result-icon">${c2.icon}</div>
         <div class="result-title">${c2.name}</div>
         <div class="result-meta">${c2.tier} • Chance ${c2.chance}</div>
+        <div class="result-meta">Earned ${displayed2} coin${displayed2 === 1 ? '' : 's'}!</div>
       </div>
     </div>
   `;
@@ -1263,6 +1395,42 @@ function showTwoResults(c1, c2) {
     const icons = resultEl.querySelectorAll('.result-icon');
     icons.forEach(icon => {
       const tierClass = '';
+      icon.classList.add('reveal');
+      setTimeout(() => icon.classList.remove('reveal'), 900);
+    });
+  }, 60);
+}
+
+function showThreeResults(c1, c2, c3, e1, e2, e3) {
+  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * 0.75 * (c1.shiny ? 1.5 : 1));
+  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * 0.75 * (c2.shiny ? 1.5 : 1));
+  const displayed3 = typeof e3 === 'number' ? e3 : Math.floor((c3.coins || 0) * 0.75 * (c3.shiny ? 1.5 : 1));
+  resultEl.innerHTML = `
+    <div class="three-results">
+      <div class="result-block">
+        <div class="result-icon">${c1.icon}</div>
+        <div class="result-title">${c1.name}</div>
+        <div class="result-meta">${c1.tier} • Chance ${c1.chance}</div>
+        <div class="result-meta">Earned ${displayed1} coin${displayed1 === 1 ? '' : 's'}!</div>
+      </div>
+      <div class="result-block">
+        <div class="result-icon">${c2.icon}</div>
+        <div class="result-title">${c2.name}</div>
+        <div class="result-meta">${c2.tier} • Chance ${c2.chance}</div>
+        <div class="result-meta">Earned ${displayed2} coin${displayed2 === 1 ? '' : 's'}!</div>
+      </div>
+      <div class="result-block">
+        <div class="result-icon">${c3.icon}</div>
+        <div class="result-title">${c3.name}</div>
+        <div class="result-meta">${c3.tier} • Chance ${c3.chance}</div>
+        <div class="result-meta">Earned ${displayed3} coin${displayed3 === 1 ? '' : 's'}!</div>
+      </div>
+    </div>
+  `;
+  // reveal animation for all three
+  setTimeout(() => {
+    const icons = resultEl.querySelectorAll('.result-icon');
+    icons.forEach(icon => {
       icon.classList.add('reveal');
       setTimeout(() => icon.classList.remove('reveal'), 900);
     });
@@ -1311,7 +1479,8 @@ function startRolling() {
     title.textContent = label;
     const meta = document.createElement('div');
     meta.className = 'result-meta';
-    meta.textContent = `Please wait ${cooldownMs/1000} second${cooldownMs===1000 ? '' : 's'}.`;
+    const speedSeconds = getRollSpeedMs() / 1000;
+    meta.textContent = `Please wait ${speedSeconds} second${speedSeconds === 1 ? '' : 's'}.`;
     block.appendChild(title);
     block.appendChild(meta);
     return block;
@@ -1320,15 +1489,21 @@ function startRolling() {
   const firstBlock = createRollingBlock('Rolling...');
   rollingWrapper.appendChild(firstBlock);
   let secondBlock = null;
+  let thirdBlock = null;
   if (upgrades.secondRoll) {
     secondBlock = createRollingBlock('Second roll...');
     rollingWrapper.appendChild(secondBlock);
+  }
+  if (upgrades.thirdRoll) {
+    thirdBlock = createRollingBlock('Third roll...');
+    rollingWrapper.appendChild(thirdBlock);
   }
   resultEl.appendChild(rollingWrapper);
 
   // start flashing fast random icons
   const flasher1 = startFlashingIcon(firstBlock, 50);
   const flasher2 = secondBlock ? startFlashingIcon(secondBlock, 50) : null;
+  const flasher3 = thirdBlock ? startFlashingIcon(thirdBlock, 50) : null;
   resultEl.classList.add('rolling');
 
   setTimeout(() => {
@@ -1358,7 +1533,14 @@ function startRolling() {
     let coinMultiplier = 1 + (coinBoosts[upgrades.coinTier] || 0);
     if (isPotionActive('coin')) coinMultiplier *= 2;
     const rebirthMultiplier = rebirthMultipliers[rebirthCount] || 1;
-    const earnedCoins = Math.floor((character.coins || 0) * coinMultiplier * rebirthMultiplier);
+    let earnedCoins;
+    if (/^cat-secrett/i.test(character.id)) {
+      earnedCoins = 100000;
+    } else {
+      // Base coins are reduced to 75%. Shiny characters get a 1.5x multiplier.
+      const baseValue = (character.coins || 0) * 0.75 * (character.shiny ? 1.5 : 1);
+      earnedCoins = Math.floor(baseValue * coinMultiplier * rebirthMultiplier);
+    }
     coinTotal += earnedCoins;
     rolledCharacters[character.id] = (rolledCharacters[character.id] || 0) + 1;
     // potion drops
@@ -1382,20 +1564,33 @@ function startRolling() {
     let character2 = null;
     if (upgrades.secondRoll) {
       character2 = weightedRandom(allCharacters, { goldenMultiplier: 1 });
-      const earnedCoins2 = Math.floor((character2.coins || 0) * coinMultiplier * rebirthMultiplier);
+      const baseValue2 = (character2.coins || 0) * 0.75 * (character2.shiny ? 1.5 : 1);
+      const earnedCoins2 = Math.floor(baseValue2 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins2;
       rolledCharacters[character2.id] = (rolledCharacters[character2.id] || 0) + 1;
+    }
+    let character3 = null;
+    let earnedCoins3;
+    if (upgrades.thirdRoll) {
+      character3 = weightedRandom(allCharacters, { goldenMultiplier: 1 });
+      const baseValue3 = (character3.coins || 0) * 0.75 * (character3.shiny ? 1.5 : 1);
+      earnedCoins3 = Math.floor(baseValue3 * coinMultiplier * rebirthMultiplier);
+      coinTotal += earnedCoins3;
+      rolledCharacters[character3.id] = (rolledCharacters[character3.id] || 0) + 1;
     }
     // stop flashing and show final
     if (flasher1 && typeof flasher1.stop === 'function') flasher1.stop(character);
     if (flasher2 && typeof flasher2.stop === 'function') flasher2.stop(character2);
+    if (flasher3 && typeof flasher3.stop === 'function') flasher3.stop(character3);
     resultEl.classList.remove('rolling');
     // play reveal sound and then show result with stronger visual for high tiers
     playRevealSound(character.tier);
-    if (upgrades.secondRoll && character2) {
-      showTwoResults(character, character2);
+    if (upgrades.thirdRoll && character2 && character3) {
+      showThreeResults(character, character2, character3, earnedCoins, (typeof earnedCoins2 !== 'undefined' ? earnedCoins2 : 0), (typeof earnedCoins3 !== 'undefined' ? earnedCoins3 : 0));
+    } else if (upgrades.secondRoll && character2) {
+      showTwoResults(character, character2, earnedCoins, (typeof earnedCoins2 !== 'undefined' ? earnedCoins2 : 0));
     } else {
-      showCharacterResult(character);
+      showCharacterResult(character, earnedCoins);
     }
 
     setTimeout(() => {
@@ -1407,7 +1602,7 @@ function startRolling() {
       }
       goldenRollActive = false;
     }, 100);
-  }, cooldownMs);
+  }, getRollSpeedMs());
 }
 
 function openIndexMenu() {
@@ -1432,6 +1627,9 @@ indexMenu.querySelector('.index-overlay').addEventListener('click', closeIndexMe
 if (upgradeButton) upgradeButton.addEventListener('click', openUpgradeMenu);
 if (closeUpgradeButton) closeUpgradeButton.addEventListener('click', closeUpgradeMenu);
 if (upgradeMenu) upgradeMenu.querySelector('.index-overlay').addEventListener('click', closeUpgradeMenu);
+if (buyRollSpeed1Button) buyRollSpeed1Button.addEventListener('click', () => buyRollSpeedTier(1));
+if (buyRollSpeed2Button) buyRollSpeed2Button.addEventListener('click', () => buyRollSpeedTier(2));
+if (buyRollSpeed3Button) buyRollSpeed3Button.addEventListener('click', () => buyRollSpeedTier(3));
 if (buyAutoRollButton) buyAutoRollButton.addEventListener('click', buyAutoRoll);
 if (buyLuck1Button) buyLuck1Button.addEventListener('click', () => buyLuckTier(1));
 if (buyLuck2Button) buyLuck2Button.addEventListener('click', () => buyLuckTier(2));
@@ -1445,8 +1643,8 @@ if (buySecretLuck4Button) buySecretLuck4Button.addEventListener('click', () => b
 if (buyCoin1Button) buyCoin1Button.addEventListener('click', () => buyCoinBoostTier(1));
 if (buyCoin2Button) buyCoin2Button.addEventListener('click', () => buyCoinBoostTier(2));
 if (buyCoin3Button) buyCoin3Button.addEventListener('click', () => buyCoinBoostTier(3));
-if (buyCoin4Button) buyCoin4Button.addEventListener('click', () => buyCoinBoostTier(4));
 if (buySecondRollButton) buySecondRollButton.addEventListener('click', buySecondRoll);
+if (buyThirdRollButton) buyThirdRollButton.addEventListener('click', buyThirdRoll);
 if (indexTabNormalButton) indexTabNormalButton.addEventListener('click', () => setIndexTab('normal'));
 if (indexTabShinyButton) indexTabShinyButton.addEventListener('click', () => setIndexTab('shiny'));
 if (adminButton) adminButton.addEventListener('click', promptAdminPassword);
