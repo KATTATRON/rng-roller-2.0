@@ -1530,6 +1530,7 @@ function startRolling() {
     updatePotionUI();
     const character = weightedRandom(allCharacters);
     rollCount += 1;
+    // Base coin multiplier is 1x; each coin upgrade tier adds +50% per tier.
     let coinMultiplier = 1 + (coinBoosts[upgrades.coinTier] || 0);
     if (isPotionActive('coin')) coinMultiplier *= 2;
     const rebirthMultiplier = rebirthMultipliers[rebirthCount] || 1;
