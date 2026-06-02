@@ -414,13 +414,15 @@ const characters = [
 const shinyCharacters = characters.map(character => {
   const match = String(character.chance).match(/^(\d+)-(\d+)$/);
   const shinyChance = match ? `${match[1]}-${Number(match[2]) * 10}` : character.chance;
+  // Shiny coins are based on the rarity denominator (e.g., 1-20 → 20 coins)
+  const shinyCoins = match ? Number(match[2]) * 10 : (character.coins || 0);
   return {
     ...character,
     id: `${character.id}-shiny`,
     name: `Shiny ${character.name}`,
     chance: shinyChance,
     weight: (character.weight || 0) / 10,
-    coins: (character.coins || 0),
+    coins: shinyCoins,
     shiny: true,
     icon: String(character.icon).replace('<svg', '<svg class="shiny-svg"')
   };
