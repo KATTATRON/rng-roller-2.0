@@ -1008,6 +1008,7 @@ function doRebirth() {
   upgrades.coinTier = 0;
   upgrades.rollSpeedTier = 0;
   upgrades.secondRoll = false;
+  upgrades.thirdRoll = false;
   potions.luck = 0;
   potions.coin = 0;
   activePotionExpiry.luck = 0;
