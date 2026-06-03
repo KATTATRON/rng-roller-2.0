@@ -2134,10 +2134,11 @@ function startRolling() {
     renderIndexMenu();
     // perform second roll if active, before final display
     let character2 = null;
+    let earnedCoins2;
     if (upgrades.secondRoll) {
       character2 = weightedRandom(rollPool, { goldenMultiplier: 1 });
       const baseValue2 = (character2.coins || 0) * (character2.shiny ? 2 : 1);
-      const earnedCoins2 = Math.floor(baseValue2 * coinMultiplier * rebirthMultiplier);
+      earnedCoins2 = Math.floor(baseValue2 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins2;
       rolledCharacters[character2.id] = (rolledCharacters[character2.id] || 0) + 1;
     }
