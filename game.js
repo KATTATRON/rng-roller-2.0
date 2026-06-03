@@ -568,7 +568,7 @@ const characters = [
     weight: 0,
     coins: 0,
     exclusive: true,
-    icon: `<img src="images/Gemini_Generated_Image_7zv1pm7zv1pm7zv1.png" alt="Doppel G" class="raster-icon" />`
+    icon: `<img src="images/Gemini_Generated_Image_8mvt9k8mvt9k8mvt.png" alt="Doppel G" class="raster-icon doppel-g-icon" />`
   }
 ];
 
@@ -924,6 +924,9 @@ function renderIndexMenu() {
     if (character.id === 'avokado-secret-1-16666') {
       iconWrapper.classList.add('avokado-icon-wrapper');
     }
+    if (character.id.startsWith('doppel-g-exclusive')) {
+      iconWrapper.classList.add('doppel-g-icon-wrapper');
+    }
     iconWrapper.innerHTML = character.icon;
 
     const info = document.createElement('div');
@@ -1041,8 +1044,9 @@ function renderInventoryMenu() {
       const equipped = equippedSecrets.includes(character.id);
       const item = document.createElement('div');
       item.className = `index-item${character.shiny ? ' shiny' : ''}${character.inverted ? ' inverted' : ''}`;
+      const wrapperClass = character.id.startsWith('doppel-g-exclusive') ? 'item-icon doppel-g-icon-wrapper' : 'item-icon';
       item.innerHTML = `
-        <div class="item-icon">${character.icon}</div>
+        <div class="${wrapperClass}">${character.icon}</div>
         <div class="item-info">
           <div class="item-name">${character.name}</div>
           <div class="item-meta">${character.tier} • ${character.chance}</div>
@@ -1084,8 +1088,9 @@ function renderInventoryMenu() {
     const owned = rolledCharacters[character.id] || 0;
     const item = document.createElement('div');
     item.className = `index-item${character.shiny ? ' shiny' : ''}${character.inverted ? ' inverted' : ''}`;
+    const wrapperClass = character.id.startsWith('doppel-g-exclusive') ? 'item-icon doppel-g-icon-wrapper' : 'item-icon';
     item.innerHTML = `
-      <div class="item-icon">${character.icon}</div>
+      <div class="${wrapperClass}">${character.icon}</div>
       <div class="item-info">
         <div class="item-name">${character.name}</div>
         <div class="item-meta">${character.tier} • ${character.chance}</div>

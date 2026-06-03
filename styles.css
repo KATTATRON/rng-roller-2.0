@@ -444,7 +444,15 @@ p {
   background: transparent;
 }
 
+.item-icon.doppel-g-icon-wrapper {
+  background: transparent;
+}
+
 .raster-icon.avokado-icon {
+  background: transparent;
+}
+
+.raster-icon.doppel-g-icon {
   background: transparent;
 }
 
