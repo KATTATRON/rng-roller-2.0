@@ -34,7 +34,10 @@
       <button id="rareRollCountButton" class="secondary-button">Rarest rolled: none</button>
       <button id="coinCountButton" class="secondary-button">Coins: 0</button>
       <button id="diamondCountButton" class="secondary-button">Diamonds: 0</button>
+      <button id="gemCountButton" class="secondary-button">Gems: 0</button>
+      <button id="diamondShopButton" class="secondary-button">Diamond Shop</button>
       <button id="luckCountButton" class="secondary-button">Luck: 0%</button>
+      <button id="secretLuckCountButton" class="secondary-button">Secret Luck: 0%</button>
       <button id="inventoryButton" class="secondary-button">Inventory</button>
       <button id="indexButton" class="secondary-button">Index</button>
       <button id="upgradeButton" class="secondary-button">Upgrades</button>
@@ -292,6 +295,56 @@
             </div>
             <div class="item-actions">
               <button id="buyThirdRollButton" class="buy-button">Buy 100000</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="diamondShopMenu" class="index-menu hidden" aria-hidden="true">
+      <div class="index-overlay"></div>
+      <div class="index-content">
+        <div class="index-header">
+          <h2>Diamond Shop</h2>
+          <button id="closeDiamondShopButton" class="close-button" aria-label="Close diamond shop">×</button>
+        </div>
+        <div id="diamondShopList" class="index-list">
+          <div class="item-meta">Current equipped secrets: <span id="diamondShopEquippedCount">0</span> / <span id="diamondShopSlotCount">1</span></div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Buy Team Slot</div>
+              <div class="item-meta">Increase your secret equip limit up to 3 slots. Costs 50 diamonds.</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyTeamSlotButton" class="buy-button">Buy 50</button>
+            </div>
+          </div>
+          <hr />
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Secret Luck Equip Tier 1</div>
+              <div class="item-meta">1 equipped secret grants +5% secret luck. Costs 50 diamonds.</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyDiamondSecretLuck1Button" class="buy-button">Buy 50</button>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Secret Luck Equip Tier 2</div>
+              <div class="item-meta">2 equipped secrets grant +5% secret luck each. Costs 100 diamonds.</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyDiamondSecretLuck2Button" class="buy-button">Buy 100</button>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Secret Luck Equip Tier 3</div>
+              <div class="item-meta">3 equipped secrets grant +5% secret luck each. Costs 150 diamonds.</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyDiamondSecretLuck3Button" class="buy-button">Buy 150</button>
             </div>
           </div>
         </div>

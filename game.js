@@ -57,6 +57,17 @@ const indexTabShinyButton = document.getElementById('indexTabShiny');
 const inventoryTabNormalButton = document.getElementById('inventoryTabNormal');
 const inventoryTabShinyButton = document.getElementById('inventoryTabShiny');
 const inventoryTabTeamButton = document.getElementById('inventoryTabTeam');
+const diamondShopButton = document.getElementById('diamondShopButton');
+const diamondShopMenu = document.getElementById('diamondShopMenu');
+const closeDiamondShopButton = document.getElementById('closeDiamondShopButton');
+const buyTeamSlotButton = document.getElementById('buyTeamSlotButton');
+const buyDiamondSecretLuck1Button = document.getElementById('buyDiamondSecretLuck1Button');
+const buyDiamondSecretLuck2Button = document.getElementById('buyDiamondSecretLuck2Button');
+const buyDiamondSecretLuck3Button = document.getElementById('buyDiamondSecretLuck3Button');
+const diamondShopEquippedCount = document.getElementById('diamondShopEquippedCount');
+const diamondShopSlotCount = document.getElementById('diamondShopSlotCount');
+const gemCountButton = document.getElementById('gemCountButton');
+const secretLuckCountButton = document.getElementById('secretLuckCountButton');
 
 // Upgrades state
 const upgrades = {
@@ -69,8 +80,10 @@ const upgrades = {
 };
 // allow a purchased second simultaneous roll
 upgrades.secondRoll = false;
+upgrades.diamondSecretLuckTier = 0;
 
 let diamondTotal = 0;
+let gemTotal = 0;
 let claimedCharacters = {};
 let teamEquipSlots = 1;
 const TEAM_EQUIP_SLOT_COST = 50;
@@ -86,6 +99,7 @@ const luckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30, 0.35];
 const luckCosts = [0, 1000, 2000, 10000, 15000, 24000, 100000];
 const secretLuckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30];
 const secretLuckCosts = [0, 4000, 7000, 10000, 20000, 100000];
+const diamondEquipSecretLuckCosts = [0, 50, 100, 150];
 const coinBoosts = [0, 0.5, 1.0, 1.5];
 // t1-t3 made 2x more expensive per user request
 const coinBoostCosts = [0, 2000, 5000, 10000];
@@ -99,16 +113,17 @@ let autoRollInterval = null;
 let adminLuckBoost = 0;
 let currentIndexTab = 'normal';
 let rebirthCount = 0;
-const rebirthLimit = 8;
-// extended multipliers for 0..8 (0=no rebirth)
-const rebirthMultipliers = [1, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0];
+const rebirthLimit = 10;
+// extended multipliers for 0..10 (0=no rebirth)
+const rebirthMultipliers = [1, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5];
 function getRebirthMultiplier(count) {
   const index = Math.max(0, Math.floor(count));
   if (index < rebirthMultipliers.length) return rebirthMultipliers[index];
   return rebirthMultipliers[rebirthMultipliers.length - 1] + 0.25 * (index - (rebirthMultipliers.length - 1));
 }
-// Rebirth costs: start at 150k for rebirth 1 and increase by 50k each step up to 8
-const rebirthCosts = [0, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000];
+// Rebirth costs: start at 150k for rebirth 1 and increase by 50k each step
+const rebirthCosts = [0, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000];
+const rebirthGemCosts = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
 // Golden dice state
 let goldenDiceCounter = 10;
 let goldenRollActive = false;
@@ -131,6 +146,7 @@ function saveState() {
     const state = {
       coinTotal,
       diamondTotal,
+      gemTotal,
       upgrades,
       rollCount,
       rolledCharacters,
@@ -157,10 +173,12 @@ function loadState() {
     const state = JSON.parse(raw);
     if (typeof state.coinTotal === 'number') coinTotal = state.coinTotal;
     if (typeof state.diamondTotal === 'number') diamondTotal = state.diamondTotal;
+    if (typeof state.gemTotal === 'number') gemTotal = state.gemTotal;
     if (state.upgrades && typeof state.upgrades === 'object') {
       upgrades.autoRoll = !!state.upgrades.autoRoll;
       upgrades.luckTier = Number(state.upgrades.luckTier) || 0;
       upgrades.secretLuckTier = Number(state.upgrades.secretLuckTier) || 0;
+      upgrades.diamondSecretLuckTier = Number(state.upgrades.diamondSecretLuckTier) || 0;
       upgrades.coinTier = Number(state.upgrades.coinTier) || 0;
       upgrades.rollSpeedTier = Number(state.upgrades.rollSpeedTier) || 0;
       upgrades.secondRoll = !!state.upgrades.secondRoll;
@@ -275,6 +293,15 @@ const characters = [
     icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="64" r="48" fill="#22c55e" stroke="#166534" stroke-width="4"/><line x1="45" y1="14" x2="42" y2="38" stroke="#166534" stroke-width="6" stroke-linecap="round"/><circle cx="42" cy="12" r="6" fill="#22c55e" stroke="#166534" stroke-width="3"/><line x1="75" y1="12" x2="74" y2="38" stroke="#166534" stroke-width="6" stroke-linecap="round"/><circle cx="74" cy="10" r="6" fill="#22c55e" stroke="#166534" stroke-width="3"/><ellipse cx="45" cy="60" rx="7" ry="14" fill="#0f766e"/><ellipse cx="75" cy="60" rx="7" ry="14" fill="#0f766e"/><path d="M46 84 Q60 92 74 84" stroke="#0f523f" stroke-width="6" fill="none" stroke-linecap="round"/></svg>`
   },
   {
+    id: 'w-uncommon-1-16',
+    name: 'W',
+    tier: 'Uncommon',
+    chance: '1-16',
+    weight: 1 / 16,
+    coins: 16,
+    icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" rx="20" ry="20" fill="#2563eb"/><text x="50%" y="62%" dominant-baseline="middle" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="72" font-weight="800" fill="#ffffff">W</text></svg>`
+  },
+  {
     id: 'flaty',
     name: 'Flaty',
     tier: 'Rare',
@@ -327,6 +354,15 @@ const characters = [
     weight: 1 / 512,
     coins: 512,
     icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><polygon points="60,14 106,60 60,106 14,60" fill="#7dd3fc" stroke="#0369a1" stroke-width="4"/><circle cx="60" cy="50" r="6" fill="#0c4a6e"/><path d="M50 40 L70 40 M44 60 L76 60 M60 72 L60 90" stroke="#0c4a6e" stroke-width="4" stroke-linecap="round"/></svg>`
+  },
+  {
+    id: 'friedrich-legendary-1-7777',
+    name: 'Friedrich',
+    tier: 'Legendary',
+    chance: '1-7777',
+    weight: 1 / 7777,
+    coins: 7777,
+    icon: `<img src="images/Gemini_Generated_Image_3hnjlw3hnjlw3hnj.png" alt="Friedrich" class="raster-icon" />`
   },
   // Added by user: Blocky (Rare)
   {
@@ -384,6 +420,15 @@ const characters = [
     weight: 1 / 486287,
     coins: 100000,
     icon: `<img src="images/erena.png" alt="Erena" class="raster-icon" />`
+  },
+  {
+    id: 'avokado-secret-1-16666',
+    name: 'Avokado',
+    tier: 'Secret',
+    chance: '1-16666',
+    weight: 1 / 16666,
+    coins: 100000,
+    icon: `<img src="images/avokado_clean.png" alt="Avokado" class="raster-icon avokado-icon" />`
   },
   {
     id: 'love-rare-1-72',
@@ -557,10 +602,32 @@ function updateDiamondCount() {
   diamondCountButton.textContent = `Diamonds: ${diamondTotal}`;
 }
 
+function updateGemCount() {
+  if (!gemCountButton) return;
+  gemCountButton.textContent = `Gems: ${gemTotal}`;
+}
+
+function getEquippedSecretLuckBonus() {
+  if (!upgrades.diamondSecretLuckTier) return 0;
+  return Math.min(equippedSecrets.length, upgrades.diamondSecretLuckTier) * 0.05;
+}
+
+function getSecretLuckBonus() {
+  const base = secretLuckTiers[upgrades.secretLuckTier] || 0;
+  return base + getEquippedSecretLuckBonus();
+}
+
+function updateSecretLuckCount() {
+  if (!secretLuckCountButton) return;
+  const secretLuckPercent = Math.round(getSecretLuckBonus() * 100);
+  secretLuckCountButton.textContent = `Secret Luck: ${secretLuckPercent}%`;
+}
+
 function updateLuckCount() {
   if (!luckCountButton) return;
   const luckPercent = Math.round(getCurrentLuckBonus() * 100);
   luckCountButton.textContent = `Luck: ${luckPercent}%`;
+  updateSecretLuckCount();
 }
 
 function getDiamondValue(character) {
@@ -701,7 +768,7 @@ function setInventoryTab(tab) {
 }
 
 function isPermanentSecretId(id) {
-  return /^(?:cat-secrett|riegelog|erena)/i.test(String(id));
+  return /^(?:cat-secrett|riegelog|erena|avokado)/i.test(String(id));
 }
 
 function renderIndexMenu() {
@@ -742,6 +809,9 @@ function renderIndexMenu() {
 
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'item-icon';
+    if (character.id === 'avokado-secret-1-16666') {
+      iconWrapper.classList.add('avokado-icon-wrapper');
+    }
     iconWrapper.innerHTML = character.icon;
 
     const info = document.createElement('div');
@@ -804,16 +874,10 @@ function renderInventoryMenu() {
     header.textContent = `Equipped secrets: ${equippedSecrets.length} / ${teamEquipSlots}`;
     inventoryList.appendChild(header);
 
-    const teamActions = document.createElement('div');
-    teamActions.className = 'item-actions admin-actions';
-    const teamButton = document.createElement('button');
-    teamButton.type = 'button';
-    teamButton.className = 'buy-button';
-    teamButton.textContent = getTeamSlotLabel();
-    teamButton.disabled = teamEquipSlots >= MAX_TEAM_EQUIP_SLOTS || diamondTotal < TEAM_EQUIP_SLOT_COST;
-    teamButton.addEventListener('click', buyTeamSlot);
-    teamActions.appendChild(teamButton);
-    inventoryList.appendChild(teamActions);
+    const infoNotice = document.createElement('div');
+    infoNotice.className = 'item-meta';
+    infoNotice.textContent = 'Buy additional team slots and secret equip luck upgrades in the Diamond Shop.';
+    inventoryList.appendChild(infoNotice);
 
     if (!secretOwned.length) {
       const empty = document.createElement('div');
@@ -976,6 +1040,53 @@ function closeUpgradeMenu() {
   if (!upgradeMenu) return;
   upgradeMenu.classList.add('hidden');
   upgradeMenu.setAttribute('aria-hidden', 'true');
+}
+
+function openDiamondShopMenu() {
+  if (!diamondShopMenu) return;
+  updateDiamondShopUI();
+  diamondShopMenu.classList.remove('hidden');
+  diamondShopMenu.setAttribute('aria-hidden', 'false');
+}
+
+function closeDiamondShopMenu() {
+  if (!diamondShopMenu) return;
+  diamondShopMenu.classList.add('hidden');
+  diamondShopMenu.setAttribute('aria-hidden', 'true');
+}
+
+function updateDiamondShopUI() {
+  if (diamondShopEquippedCount) diamondShopEquippedCount.textContent = String(equippedSecrets.length);
+  if (diamondShopSlotCount) diamondShopSlotCount.textContent = String(teamEquipSlots);
+  if (buyTeamSlotButton) {
+    buyTeamSlotButton.disabled = teamEquipSlots >= MAX_TEAM_EQUIP_SLOTS || diamondTotal < TEAM_EQUIP_SLOT_COST;
+    buyTeamSlotButton.textContent = teamEquipSlots >= MAX_TEAM_EQUIP_SLOTS ? 'Max slots' : `Buy ${TEAM_EQUIP_SLOT_COST}`;
+  }
+  if (buyDiamondSecretLuck1Button) {
+    buyDiamondSecretLuck1Button.disabled = !canBuyTier(upgrades.diamondSecretLuckTier, 1) || diamondTotal < diamondEquipSecretLuckCosts[1];
+    buyDiamondSecretLuck1Button.textContent = upgrades.diamondSecretLuckTier >= 1 ? 'Owned' : `Buy ${diamondEquipSecretLuckCosts[1]}`;
+  }
+  if (buyDiamondSecretLuck2Button) {
+    buyDiamondSecretLuck2Button.disabled = !canBuyTier(upgrades.diamondSecretLuckTier, 2) || diamondTotal < diamondEquipSecretLuckCosts[2];
+    buyDiamondSecretLuck2Button.textContent = upgrades.diamondSecretLuckTier >= 2 ? 'Owned' : `Buy ${diamondEquipSecretLuckCosts[2]}`;
+  }
+  if (buyDiamondSecretLuck3Button) {
+    buyDiamondSecretLuck3Button.disabled = !canBuyTier(upgrades.diamondSecretLuckTier, 3) || diamondTotal < diamondEquipSecretLuckCosts[3];
+    buyDiamondSecretLuck3Button.textContent = upgrades.diamondSecretLuckTier >= 3 ? 'Owned' : `Buy ${diamondEquipSecretLuckCosts[3]}`;
+  }
+}
+
+function buyDiamondSecretLuckTier(tier) {
+  if (upgrades.diamondSecretLuckTier >= tier) { alert('You already own this tier or higher'); return; }
+  if (!canBuyTier(upgrades.diamondSecretLuckTier, tier)) { alert('You must purchase the previous diamond secret luck tier first.'); return; }
+  const cost = diamondEquipSecretLuckCosts[tier] || 0;
+  if (diamondTotal < cost) { alert('Not enough diamonds'); return; }
+  diamondTotal -= cost;
+  upgrades.diamondSecretLuckTier = tier;
+  updateDiamondCount();
+  updateDiamondShopUI();
+  updateSecretLuckCount();
+  saveState();
 }
 
 function findCharacterByNameOrId(name) {
@@ -1362,7 +1473,9 @@ function resetAdminAccount() {
   upgrades.rollSpeedTier = 0;
   upgrades.secondRoll = false;
   upgrades.thirdRoll = false;
+  upgrades.diamondSecretLuckTier = 0;
   diamondTotal = 0;
+  gemTotal = 0;
   claimedCharacters = {};
   goldenDiceCounter = 10;
   goldenPending = false;
@@ -1398,6 +1511,10 @@ function closeRebirthMenu() {
   rebirthMenu.setAttribute('aria-hidden', 'true');
 }
 
+function getRebirthGemCost(count) {
+  return rebirthGemCosts[count] || 0;
+}
+
 function updateRebirthUI() {
   if (!rebirthInfo) return;
   const current = rebirthCount;
@@ -1405,8 +1522,9 @@ function updateRebirthUI() {
   const next = Math.min(rebirthLimit, current + 1);
   const nextMult = getRebirthMultiplier(next);
   const nextCost = rebirthCosts[next] || 0;
-  rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult.toFixed(2)}x<br/>Next rebirth: ${next} — Boost ${nextMult.toFixed(2)}x — Cost ${nextCost}`;
-  if (doRebirthButton) doRebirthButton.disabled = current >= rebirthLimit || coinTotal < nextCost;
+  const nextGemCost = getRebirthGemCost(next);
+  rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult.toFixed(2)}x<br/>Next rebirth: ${next} — Boost ${nextMult.toFixed(2)}x — Cost ${nextCost} coins + ${nextGemCost} gems`;
+  if (doRebirthButton) doRebirthButton.disabled = current >= rebirthLimit || coinTotal < nextCost || gemTotal < nextGemCost;
   updateInventoryNotification();
 }
 
@@ -1415,10 +1533,13 @@ function doRebirth() {
   const next = Math.min(rebirthLimit, current + 1);
   if (next <= current) { alert('Max rebirths reached'); return; }
   const cost = rebirthCosts[next] || 0;
+  const gemCost = getRebirthGemCost(next);
   if (coinTotal < cost) { alert('Not enough coins for rebirth'); return; }
-  if (!confirm(`Are you sure you want to rebirth for ${cost} coins? This will reset your account but grant the rebirth boost.`)) return;
+  if (gemTotal < gemCost) { alert('Not enough gems for rebirth'); return; }
+  if (!confirm(`Are you sure you want to rebirth for ${cost} coins and ${gemCost} gems? This will reset your account but grant the rebirth boost.`)) return;
   // charge cost then increment rebirth count
   coinTotal = 0;
+  gemTotal -= gemCost;
   rebirthCount = next;
   // reset account state as requested
   rollCount = 0;
@@ -1440,6 +1561,14 @@ function doRebirth() {
   claimedCharacters = {};
   goldenDiceCounter = 10;
   goldenPending = false;
+  updateGemCount();
+  updateDiamondCount();
+  updateRollCount();
+  updateCoinCount();
+  updateInventoryNotification();
+  updateRebirthUI();
+  updateDiamondShopUI();
+  updateSecretLuckCount();
   if (autoRollInterval) { clearInterval(autoRollInterval); autoRollInterval = null; }
   autoRollActive = false;
   const toggleBtn = document.getElementById('autoRollToggle');
@@ -2107,6 +2236,12 @@ if (buyCoin2Button) buyCoin2Button.addEventListener('click', () => buyCoinBoostT
 if (buyCoin3Button) buyCoin3Button.addEventListener('click', () => buyCoinBoostTier(3));
 if (buySecondRollButton) buySecondRollButton.addEventListener('click', buySecondRoll);
 if (buyThirdRollButton) buyThirdRollButton.addEventListener('click', buyThirdRoll);
+if (diamondShopButton) diamondShopButton.addEventListener('click', openDiamondShopMenu);
+if (closeDiamondShopButton) closeDiamondShopButton.addEventListener('click', closeDiamondShopMenu);
+if (buyTeamSlotButton) buyTeamSlotButton.addEventListener('click', () => { buyTeamSlot(); updateDiamondShopUI(); });
+if (buyDiamondSecretLuck1Button) buyDiamondSecretLuck1Button.addEventListener('click', () => buyDiamondSecretLuckTier(1));
+if (buyDiamondSecretLuck2Button) buyDiamondSecretLuck2Button.addEventListener('click', () => buyDiamondSecretLuckTier(2));
+if (buyDiamondSecretLuck3Button) buyDiamondSecretLuck3Button.addEventListener('click', () => buyDiamondSecretLuckTier(3));
 if (indexTabNormalButton) indexTabNormalButton.addEventListener('click', () => setIndexTab('normal'));
 if (indexTabShinyButton) indexTabShinyButton.addEventListener('click', () => setIndexTab('shiny'));
 if (inventoryTabNormalButton) inventoryTabNormalButton.addEventListener('click', () => setInventoryTab('normal'));
@@ -2140,6 +2275,8 @@ loadState();
 updateRollCount();
 updateCoinCount();
 updateDiamondCount();
+updateGemCount();
+updateSecretLuckCount();
 updateInventoryNotification();
 renderIndexMenu();
 updateUpgradeUI();
