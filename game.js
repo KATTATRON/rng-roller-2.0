@@ -54,8 +54,10 @@ const useShinyPrefix = (name) => {
 const autoRollContainer = document.getElementById('autoRollContainer');
 const indexTabNormalButton = document.getElementById('indexTabNormal');
 const indexTabShinyButton = document.getElementById('indexTabShiny');
+const indexTabInvertedButton = document.getElementById('indexTabInverted');
 const inventoryTabNormalButton = document.getElementById('inventoryTabNormal');
 const inventoryTabShinyButton = document.getElementById('inventoryTabShiny');
+const inventoryTabInvertedButton = document.getElementById('inventoryTabInverted');
 const inventoryTabTeamButton = document.getElementById('inventoryTabTeam');
 const diamondShopButton = document.getElementById('diamondShopButton');
 const diamondShopMenu = document.getElementById('diamondShopMenu');
@@ -66,7 +68,7 @@ const buyDiamondSecretLuck2Button = document.getElementById('buyDiamondSecretLuc
 const buyDiamondSecretLuck3Button = document.getElementById('buyDiamondSecretLuck3Button');
 const diamondShopEquippedCount = document.getElementById('diamondShopEquippedCount');
 const diamondShopSlotCount = document.getElementById('diamondShopSlotCount');
-const gemCountButton = document.getElementById('gemCountButton');
+
 const secretLuckCountButton = document.getElementById('secretLuckCountButton');
 
 // Upgrades state
@@ -83,7 +85,6 @@ upgrades.secondRoll = false;
 upgrades.diamondSecretLuckTier = 0;
 
 let diamondTotal = 0;
-let gemTotal = 0;
 let claimedCharacters = {};
 let teamEquipSlots = 1;
 const TEAM_EQUIP_SLOT_COST = 50;
@@ -99,7 +100,7 @@ const luckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30, 0.35];
 const luckCosts = [0, 1000, 2000, 10000, 15000, 24000, 100000];
 const secretLuckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30];
 const secretLuckCosts = [0, 4000, 7000, 10000, 20000, 100000];
-const diamondEquipSecretLuckCosts = [0, 50, 100, 150];
+const diamondEquipSecretLuckCosts = [0, 50, 50, 50];
 const coinBoosts = [0, 0.5, 1.0, 1.5];
 // t1-t3 made 2x more expensive per user request
 const coinBoostCosts = [0, 2000, 5000, 10000];
@@ -123,7 +124,7 @@ function getRebirthMultiplier(count) {
 }
 // Rebirth costs: start at 150k for rebirth 1 and increase by 50k each step
 const rebirthCosts = [0, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000];
-const rebirthGemCosts = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+const rebirthDiamondCosts = [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250];
 // Golden dice state
 let goldenDiceCounter = 10;
 let goldenRollActive = false;
@@ -146,7 +147,6 @@ function saveState() {
     const state = {
       coinTotal,
       diamondTotal,
-      gemTotal,
       upgrades,
       rollCount,
       rolledCharacters,
@@ -173,7 +173,6 @@ function loadState() {
     const state = JSON.parse(raw);
     if (typeof state.coinTotal === 'number') coinTotal = state.coinTotal;
     if (typeof state.diamondTotal === 'number') diamondTotal = state.diamondTotal;
-    if (typeof state.gemTotal === 'number') gemTotal = state.gemTotal;
     if (state.upgrades && typeof state.upgrades === 'object') {
       upgrades.autoRoll = !!state.upgrades.autoRoll;
       upgrades.luckTier = Number(state.upgrades.luckTier) || 0;
@@ -541,7 +540,23 @@ const shinyCharacters = characters.map(character => {
     icon: String(character.icon).replace('<svg', '<svg class="shiny-svg"')
   };
 });
-const allCharacters = [...characters, ...shinyCharacters];
+const invertedCharacters = characters.map(character => {
+  const match = String(character.chance).match(/^(\d+)-(\d+)$/);
+  const invertedChance = match ? `${match[1]}-${Number(match[2]) * 5}` : character.chance;
+  // Inverted coins are 1.5x the normal character coin value
+  const invertedCoins = Math.floor((character.coins || 0) * 1.5);
+  return {
+    ...character,
+    id: `${character.id}-inverted`,
+    name: `Inverted ${character.name}`,
+    chance: invertedChance,
+    weight: (character.weight || 0) / 5,
+    coins: invertedCoins,
+    inverted: true,
+    icon: String(character.icon).replace('<svg', '<svg class="inverted-svg"')
+  };
+});
+const allCharacters = [...characters, ...shinyCharacters, ...invertedCharacters];
 
 function getRollSpeedMs() {
   return rollSpeedMsByTier[upgrades.rollSpeedTier] || 2500;
@@ -602,10 +617,7 @@ function updateDiamondCount() {
   diamondCountButton.textContent = `Diamonds: ${diamondTotal}`;
 }
 
-function updateGemCount() {
-  if (!gemCountButton) return;
-  gemCountButton.textContent = `Gems: ${gemTotal}`;
-}
+
 
 function getEquippedSecretLuckBonus() {
   if (!upgrades.diamondSecretLuckTier) return 0;
@@ -657,18 +669,18 @@ function cleanupEquippedSecrets() {
 function getTeamLuckBonus() {
   return equippedSecrets.reduce((total, id) => {
     const character = allCharacters.find(c => c.id === id);
-    if (!character) return total;
-    return total + (character.shiny ? 0.5 : 0.25);
+    if (!character || !isSecretCharacter(character)) return total;
+    return total + (character.shiny ? 0.50 : 0.25);
   }, 0);
 }
 
 function getCurrentLuckBonus() {
   const luckTierBonus = upgrades.luckTier ? luckTiers[upgrades.luckTier] || 0 : 0;
   const teamLuckBonus = getTeamLuckBonus();
+  const rebirthBonus = rebirthCount * 0.05;
   const potionLuckMultiplier = isPotionActive('luck') ? 2 : 1;
   const goldenMultiplier = goldenRollActive ? 4 : 1;
-  const rebirthMultiplier = rebirthMultipliers[rebirthCount] || 1;
-  return ((((luckTierBonus + teamLuckBonus) * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier) * rebirthMultiplier;
+  return (((luckTierBonus + teamLuckBonus + rebirthBonus) * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier;
 }
 
 function toggleEquipSecret(character) {
@@ -743,11 +755,13 @@ function updateInventoryNotification() {
 function updateIndexTabButtons() {
   if (indexTabNormalButton) indexTabNormalButton.classList.toggle('active', currentIndexTab === 'normal');
   if (indexTabShinyButton) indexTabShinyButton.classList.toggle('active', currentIndexTab === 'shiny');
+  if (indexTabInvertedButton) indexTabInvertedButton.classList.toggle('active', currentIndexTab === 'inverted');
 }
 
 function updateInventoryTabButtons() {
   if (inventoryTabNormalButton) inventoryTabNormalButton.classList.toggle('active', currentInventoryTab === 'normal');
   if (inventoryTabShinyButton) inventoryTabShinyButton.classList.toggle('active', currentInventoryTab === 'shiny');
+  if (inventoryTabInvertedButton) inventoryTabInvertedButton.classList.toggle('active', currentInventoryTab === 'inverted');
   if (inventoryTabTeamButton) inventoryTabTeamButton.classList.toggle('active', currentInventoryTab === 'team');
 }
 
@@ -773,7 +787,11 @@ function isPermanentSecretId(id) {
 
 function renderIndexMenu() {
   indexList.innerHTML = '';
-  const visibleEntries = allCharacters.filter(character => currentIndexTab === 'shiny' ? !!character.shiny : !character.shiny);
+  const visibleEntries = allCharacters.filter(character => {
+    if (currentIndexTab === 'shiny') return !!character.shiny;
+    if (currentIndexTab === 'inverted') return !!character.inverted;
+    return !character.shiny && !character.inverted;
+  });
   const rarityOrder = {
     Common: 0,
     Uncommon: 1,
@@ -805,7 +823,7 @@ function renderIndexMenu() {
     const countLabel = unlocked ? `Rolled ${owned} time${owned === 1 ? '' : 's'}` : 'Not unlocked yet';
 
     const item = document.createElement('div');
-    item.className = `index-item${character.shiny ? ' shiny' : ''}${!unlocked ? ' locked' : ''}`;
+    item.className = `index-item${character.shiny ? ' shiny' : ''}${character.inverted ? ' inverted' : ''}${!unlocked ? ' locked' : ''}`;
 
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'item-icon';
@@ -837,8 +855,9 @@ function renderIndexMenu() {
       claimBtn.type = 'button';
       claimBtn.className = 'claim-button';
       claimBtn.dataset.id = character.id;
-      claimBtn.textContent = `Claim ${getDiamondValue(character)} ♦`;
-      claimBtn.addEventListener('click', () => claimDiamond(character));
+      const claimAmount = Math.round((getDiamondValue(character) * 1.5) * 100) / 100;
+      claimBtn.textContent = `Claim ${claimAmount} ♦`;
+      claimBtn.addEventListener('click', () => claimDiamond(character, claimAmount));
       actions.appendChild(claimBtn);
     }
 
@@ -849,10 +868,11 @@ function renderIndexMenu() {
   });
 }
 
-function claimDiamond(character) {
+function claimDiamond(character, amountArg) {
   if (!character || !rolledCharacters[character.id]) return;
   if (claimedCharacters[character.id]) return;
-  const amount = getDiamondValue(character);
+  const baseValue = getDiamondValue(character);
+  const amount = typeof amountArg === 'number' ? amountArg : Math.round((baseValue * 1.5) * 100) / 100;
   diamondTotal += amount;
   claimedCharacters[character.id] = true;
   updateDiamondCount();
@@ -891,7 +911,7 @@ function renderInventoryMenu() {
     secretOwned.forEach(character => {
       const equipped = equippedSecrets.includes(character.id);
       const item = document.createElement('div');
-      item.className = `index-item${character.shiny ? ' shiny' : ''}`;
+      item.className = `index-item${character.shiny ? ' shiny' : ''}${character.inverted ? ' inverted' : ''}`;
       item.innerHTML = `
         <div class="item-icon">${character.icon}</div>
         <div class="item-info">
@@ -916,7 +936,11 @@ function renderInventoryMenu() {
     return;
   }
 
-  const ownedEntries = allCharacters.filter(character => rolledCharacters[character.id] && (currentInventoryTab === 'shiny' ? !!character.shiny : !character.shiny));
+  const ownedEntries = allCharacters.filter(character => rolledCharacters[character.id] && (
+    currentInventoryTab === 'shiny' ? !!character.shiny :
+    currentInventoryTab === 'inverted' ? !!character.inverted :
+    (!character.shiny && !character.inverted)
+  ));
 
   if (!ownedEntries.length) {
     const emptyLabel = currentInventoryTab === 'shiny'
@@ -930,7 +954,7 @@ function renderInventoryMenu() {
   ownedEntries.forEach(character => {
     const owned = rolledCharacters[character.id] || 0;
     const item = document.createElement('div');
-    item.className = `index-item${character.shiny ? ' shiny' : ''}`;
+    item.className = `index-item${character.shiny ? ' shiny' : ''}${character.inverted ? ' inverted' : ''}`;
     item.innerHTML = `
       <div class="item-icon">${character.icon}</div>
       <div class="item-info">
@@ -971,24 +995,32 @@ function sellCharacter(character) {
     return;
   }
 
-  // Use base (non-shiny) coin value when selling shiny characters
+  // Determine base coin value for selling. Handle shiny and inverted variants specially.
   let baseCoins = character.coins || 0;
+  // If shiny, find the non-shiny base and use its coins
   if (character.shiny) {
     const baseId = String(character.id).replace(/-shiny$/i, '');
     const baseName = String(character.name).replace(/^shiny\s+/i, '').trim().toLowerCase();
-    const base = allCharacters.find(c => !c.shiny && (String(c.id).toLowerCase() === baseId.toLowerCase() || (c.name && c.name.toLowerCase() === baseName)));
+    const base = allCharacters.find(c => !c.shiny && !c.inverted && (String(c.id).toLowerCase() === baseId.toLowerCase() || (c.name && c.name.toLowerCase() === baseName)));
     if (base && typeof base.coins === 'number') {
       baseCoins = base.coins;
-    } else {
-      // fallback: try common shiny multipliers (first 10x then 5x)
-      if (baseCoins >= 10 && baseCoins % 10 === 0) {
-        baseCoins = baseCoins / 10;
-      } else if (baseCoins >= 5 && baseCoins % 5 === 0) {
-        baseCoins = baseCoins / 5;
-      }
     }
   }
-  const perItem = Math.floor(baseCoins * (character.shiny ? 3 : 0.5));
+  // If inverted, find the non-inverted base and use its coins
+  if (character.inverted) {
+    const baseId = String(character.id).replace(/-inverted$/i, '');
+    const baseName = String(character.name).replace(/^inverted\s+/i, '').trim().toLowerCase();
+    const base = allCharacters.find(c => !c.inverted && !c.shiny && (String(c.id).toLowerCase() === baseId.toLowerCase() || (c.name && c.name.toLowerCase() === baseName)));
+    if (base && typeof base.coins === 'number') {
+      baseCoins = base.coins;
+    }
+  }
+
+  // Selling multiplier: shiny sells for 3x base, inverted sells for 2x base, normal sells for 0.5x base
+  let perItem;
+  if (character.shiny) perItem = Math.floor(baseCoins * 3);
+  else if (character.inverted) perItem = Math.floor(baseCoins * 2);
+  else perItem = Math.floor(baseCoins * 0.5);
   const total = perItem * qty;
   const confirmMsg = `Are you sure you want to sell: ${qty}x ${character.name}?\nYou will receive ${total} coin${total === 1 ? '' : 's'}.`;
   if (!confirm(confirmMsg)) return;
@@ -1475,7 +1507,6 @@ function resetAdminAccount() {
   upgrades.thirdRoll = false;
   upgrades.diamondSecretLuckTier = 0;
   diamondTotal = 0;
-  gemTotal = 0;
   claimedCharacters = {};
   goldenDiceCounter = 10;
   goldenPending = false;
@@ -1511,8 +1542,8 @@ function closeRebirthMenu() {
   rebirthMenu.setAttribute('aria-hidden', 'true');
 }
 
-function getRebirthGemCost(count) {
-  return rebirthGemCosts[count] || 0;
+function getRebirthDiamondCost(count) {
+  return rebirthDiamondCosts[count] || 0;
 }
 
 function updateRebirthUI() {
@@ -1522,9 +1553,9 @@ function updateRebirthUI() {
   const next = Math.min(rebirthLimit, current + 1);
   const nextMult = getRebirthMultiplier(next);
   const nextCost = rebirthCosts[next] || 0;
-  const nextGemCost = getRebirthGemCost(next);
-  rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult.toFixed(2)}x<br/>Next rebirth: ${next} — Boost ${nextMult.toFixed(2)}x — Cost ${nextCost} coins + ${nextGemCost} gems`;
-  if (doRebirthButton) doRebirthButton.disabled = current >= rebirthLimit || coinTotal < nextCost || gemTotal < nextGemCost;
+  const nextDiamondCost = getRebirthDiamondCost(next);
+  rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult.toFixed(2)}x<br/>Next rebirth: ${next} — Boost ${nextMult.toFixed(2)}x — Cost ${nextCost} coins + ${nextDiamondCost} diamonds`;
+  if (doRebirthButton) doRebirthButton.disabled = current >= rebirthLimit || coinTotal < nextCost || diamondTotal < nextDiamondCost;
   updateInventoryNotification();
 }
 
@@ -1533,13 +1564,13 @@ function doRebirth() {
   const next = Math.min(rebirthLimit, current + 1);
   if (next <= current) { alert('Max rebirths reached'); return; }
   const cost = rebirthCosts[next] || 0;
-  const gemCost = getRebirthGemCost(next);
+  const diamondCost = getRebirthDiamondCost(next);
   if (coinTotal < cost) { alert('Not enough coins for rebirth'); return; }
-  if (gemTotal < gemCost) { alert('Not enough gems for rebirth'); return; }
-  if (!confirm(`Are you sure you want to rebirth for ${cost} coins and ${gemCost} gems? This will reset your account but grant the rebirth boost.`)) return;
+  if (diamondTotal < diamondCost) { alert('Not enough diamonds for rebirth'); return; }
+  if (!confirm(`Are you sure you want to rebirth for ${cost} coins and ${diamondCost} diamonds? This will reset your account but grant the rebirth boost.`)) return;
   // charge cost then increment rebirth count
   coinTotal = 0;
-  gemTotal -= gemCost;
+  diamondTotal -= diamondCost;
   rebirthCount = next;
   // reset account state as requested
   rollCount = 0;
@@ -1561,7 +1592,6 @@ function doRebirth() {
   claimedCharacters = {};
   goldenDiceCounter = 10;
   goldenPending = false;
-  updateGemCount();
   updateDiamondCount();
   updateRollCount();
   updateCoinCount();
@@ -2227,6 +2257,7 @@ if (buyLuck2Button) buyLuck2Button.addEventListener('click', () => buyLuckTier(2
 if (buyLuck3Button) buyLuck3Button.addEventListener('click', () => buyLuckTier(3));
 if (buyLuck4Button) buyLuck4Button.addEventListener('click', () => buyLuckTier(4));
 if (buyLuck5Button) buyLuck5Button.addEventListener('click', () => buyLuckTier(5));
+if (buyLuck6Button) buyLuck6Button.addEventListener('click', () => buyLuckTier(6));
 if (buySecretLuck1Button) buySecretLuck1Button.addEventListener('click', () => buySecretLuckTier(1));
 if (buySecretLuck2Button) buySecretLuck2Button.addEventListener('click', () => buySecretLuckTier(2));
 if (buySecretLuck3Button) buySecretLuck3Button.addEventListener('click', () => buySecretLuckTier(3));
@@ -2245,8 +2276,10 @@ if (buyDiamondSecretLuck2Button) buyDiamondSecretLuck2Button.addEventListener('c
 if (buyDiamondSecretLuck3Button) buyDiamondSecretLuck3Button.addEventListener('click', () => buyDiamondSecretLuckTier(3));
 if (indexTabNormalButton) indexTabNormalButton.addEventListener('click', () => setIndexTab('normal'));
 if (indexTabShinyButton) indexTabShinyButton.addEventListener('click', () => setIndexTab('shiny'));
+if (indexTabInvertedButton) indexTabInvertedButton.addEventListener('click', () => setIndexTab('inverted'));
 if (inventoryTabNormalButton) inventoryTabNormalButton.addEventListener('click', () => setInventoryTab('normal'));
 if (inventoryTabShinyButton) inventoryTabShinyButton.addEventListener('click', () => setInventoryTab('shiny'));
+if (inventoryTabInvertedButton) inventoryTabInvertedButton.addEventListener('click', () => setInventoryTab('inverted'));
 if (inventoryTabTeamButton) inventoryTabTeamButton.addEventListener('click', () => setInventoryTab('team'));
 if (adminButton) adminButton.addEventListener('click', promptAdminPassword);
 const rebirthButton = document.getElementById('rebirthButton');
@@ -2276,7 +2309,6 @@ loadState();
 updateRollCount();
 updateCoinCount();
 updateDiamondCount();
-updateGemCount();
 updateSecretLuckCount();
 updateInventoryNotification();
 renderIndexMenu();

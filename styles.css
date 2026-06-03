@@ -400,6 +400,11 @@ p {
   filter: grayscale(1) opacity(0.55);
 }
 
+/* Inverted icons: flip colors visually */
+.inverted-svg {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 .index-item.locked .item-name,
 .index-item.locked .item-meta,
 .index-item.locked .item-count {
