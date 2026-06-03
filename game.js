@@ -89,6 +89,7 @@ let claimedCharacters = {};
 let completedIndexTabs = { normal: false, shiny: false, inverted: false };
 let doppelGObtained = { normal: false, shiny: false, inverted: false };
 let indexCompletionLuckCounts = { normal: 0, shiny: 0, inverted: 0 };
+let indexCompletionLuckLastClaimedRebirth = { normal: -1, shiny: -1, inverted: -1 };
 let teamEquipSlots = 1;
 const TEAM_EQUIP_SLOT_COST = 50;
 const MAX_TEAM_EQUIP_SLOTS = 3;
@@ -165,7 +166,8 @@ function saveState() {
       equippedSecrets,
       completedIndexTabs,
       doppelGObtained,
-      indexCompletionLuckCounts
+      indexCompletionLuckCounts,
+      indexCompletionLuckLastClaimedRebirth
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -243,6 +245,14 @@ function loadState() {
       Object.keys(state.indexCompletionLuckCounts).forEach(k => {
         if (typeof state.indexCompletionLuckCounts[k] === 'number') {
           indexCompletionLuckCounts[k] = Math.max(0, Math.floor(state.indexCompletionLuckCounts[k]));
+        }
+      });
+    }
+    if (state.indexCompletionLuckLastClaimedRebirth && typeof state.indexCompletionLuckLastClaimedRebirth === 'object') {
+      indexCompletionLuckLastClaimedRebirth = { normal: -1, shiny: -1, inverted: -1 };
+      Object.keys(state.indexCompletionLuckLastClaimedRebirth).forEach(k => {
+        if (typeof state.indexCompletionLuckLastClaimedRebirth[k] === 'number') {
+          indexCompletionLuckLastClaimedRebirth[k] = Math.max(-1, Math.floor(state.indexCompletionLuckLastClaimedRebirth[k]));
         }
       });
     }
@@ -558,7 +568,7 @@ const characters = [
     weight: 0,
     coins: 0,
     exclusive: true,
-    icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Doppel G"><g transform="translate(10 20)"><rect x="0" y="0" width="100" height="70" rx="14" ry="14" fill="#7b5e26" stroke="#4c3d17" stroke-width="4"/><path d="M14 16 H86" stroke="#d9b86d" stroke-width="6" stroke-linecap="round"/><rect x="6" y="8" width="28" height="24" rx="8" ry="8" fill="#c89f4a"/><circle cx="28" cy="20" r="5" fill="#4c3d17"/><text x="58" y="45" font-size="28" font-weight="800" fill="#f8e9b6" text-anchor="middle" font-family="Inter, system-ui, sans-serif">GG</text></g></svg>`
+    icon: `<img src="images/Gemini_Generated_Image_7zv1pm7zv1pm7zv1.png" alt="Doppel G" class="raster-icon" />`
   }
 ];
 
@@ -871,9 +881,15 @@ function renderIndexMenu() {
       button.type = 'button';
       button.className = 'claim-button';
       const hasDoppel = !!doppelGObtained[currentIndexTab];
-      button.textContent = hasDoppel
-        ? '+5% Luck for completing again'
-        : `Claim ${currentIndexTab === 'shiny' ? 'Shiny ' : currentIndexTab === 'inverted' ? 'Inverted ' : ''}Doppel G`;
+      const alreadyClaimedThisRebirth = indexCompletionLuckLastClaimedRebirth[currentIndexTab] === rebirthCount;
+      if (hasDoppel) {
+        button.textContent = alreadyClaimedThisRebirth
+          ? 'Luck already claimed this rebirth'
+          : '+5% Luck for completing again';
+        button.disabled = alreadyClaimedThisRebirth;
+      } else {
+        button.textContent = `Claim ${currentIndexTab === 'shiny' ? 'Shiny ' : currentIndexTab === 'inverted' ? 'Inverted ' : ''}Doppel G`;
+      }
       button.addEventListener('click', () => claimDoppelG(currentIndexTab));
       claimContainer.appendChild(button);
     }
@@ -963,11 +979,18 @@ function claimDiamond(character, amountArg) {
 function claimDoppelG(tab) {
   const normalizedTab = String(tab || '').toLowerCase();
   const bonusEligible = !!doppelGObtained[normalizedTab];
+  const alreadyClaimedThisRebirth = indexCompletionLuckLastClaimedRebirth[normalizedTab] === rebirthCount;
   if (bonusEligible) {
+    if (alreadyClaimedThisRebirth) {
+      showPopup(`You already claimed extra luck for this rebirth.`, 3000);
+      return;
+    }
     indexCompletionLuckCounts[normalizedTab] = (indexCompletionLuckCounts[normalizedTab] || 0) + 1;
+    indexCompletionLuckLastClaimedRebirth[normalizedTab] = rebirthCount;
     saveState();
     updateLuckCount();
     showPopup(`Completed ${normalizedTab} index again! +5% luck awarded.`, 3000);
+    renderIndexMenu();
     return;
   }
 
@@ -1376,8 +1399,18 @@ function resetAdminLuck() {
   alert('Admin luck boost reset.');
 }
 
+function removeAutoRollToggle() {
+  const existing = document.getElementById('autoRollToggle');
+  if (existing) {
+    existing.remove();
+  }
+}
+
 function ensureAutoRollToggle() {
-  if (!upgrades.autoRoll || !autoRollContainer) return;
+  if (!upgrades.autoRoll || !autoRollContainer) {
+    removeAutoRollToggle();
+    return;
+  }
   if (document.getElementById('autoRollToggle')) return;
   const btn = document.createElement('button');
   btn.id = 'autoRollToggle';
@@ -1623,8 +1656,7 @@ function resetAdminAccount() {
   }
   autoRollActive = false;
   rebirthCount = 0;
-  const toggleBtn = document.getElementById('autoRollToggle');
-  if (toggleBtn) toggleBtn.textContent = 'Auto Roll: Off';
+  removeAutoRollToggle();
   if (adminLuckBoostInput) adminLuckBoostInput.value = '0';
   updateRollCount();
   updateCoinCount();
@@ -1707,8 +1739,7 @@ function doRebirth() {
   updateSecretLuckCount();
   if (autoRollInterval) { clearInterval(autoRollInterval); autoRollInterval = null; }
   autoRollActive = false;
-  const toggleBtn = document.getElementById('autoRollToggle');
-  if (toggleBtn) toggleBtn.textContent = 'Auto Roll: Off';
+  removeAutoRollToggle();
   updateRollCount();
   updateCoinCount();
   renderIndexMenu();
@@ -1806,8 +1837,12 @@ function updateUpgradeUI() {
     buySecretLuck5Button.disabled = !canBuyTier(upgrades.secretLuckTier, 5) || coinTotal < secretLuckCosts[5];
     buySecretLuck5Button.textContent = upgrades.secretLuckTier >= 5 ? 'Owned' : `Buy ${secretLuckCosts[5]}`;
   }
-  // ensure toggle exists if auto-roll purchased
-  if (upgrades.autoRoll) ensureAutoRollToggle();
+  // ensure auto-roll toggle reflects ownership state
+  if (upgrades.autoRoll) {
+    ensureAutoRollToggle();
+  } else {
+    removeAutoRollToggle();
+  }
   updatePotionUI();
 }
 
