@@ -33,6 +33,9 @@
       <button id="rollCountButton" class="secondary-button">Roll count: 0</button>
       <button id="rareRollCountButton" class="secondary-button">Rarest rolled: none</button>
       <button id="coinCountButton" class="secondary-button">Coins: 0</button>
+      <button id="diamondCountButton" class="secondary-button">Diamonds: 0</button>
+      <button id="luckCountButton" class="secondary-button">Luck: 0%</button>
+      <button id="inventoryButton" class="secondary-button">Inventory</button>
       <button id="indexButton" class="secondary-button">Index</button>
       <button id="upgradeButton" class="secondary-button">Upgrades</button>
       <button id="adminButton" class="secondary-button">Admin</button>
@@ -51,6 +54,21 @@
           <button id="indexTabShiny" class="tab-button">Shiny</button>
         </div>
         <div id="indexList" class="index-list"></div>
+      </div>
+    </div>
+    <div id="inventoryMenu" class="index-menu hidden" aria-hidden="true">
+      <div class="index-overlay"></div>
+      <div class="index-content">
+        <div class="index-header">
+          <h2>Your Inventory</h2>
+          <button id="closeInventoryButton" class="close-button" aria-label="Close inventory">×</button>
+        </div>
+        <div class="index-tabs">
+          <button id="inventoryTabNormal" class="tab-button active">Normal</button>
+          <button id="inventoryTabShiny" class="tab-button">Shiny</button>
+          <button id="inventoryTabTeam" class="tab-button">Team</button>
+        </div>
+        <div id="inventoryList" class="index-list"></div>
       </div>
     </div>
     <div id="rebirthMenu" class="index-menu hidden" aria-hidden="true">
@@ -104,83 +122,101 @@
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Luck Boost Tier 1</div>
-              <div class="item-meta">+5% luck — Costs 500 coins</div>
+              <div class="item-meta">+5% luck — Costs 1000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyLuck1Button" class="buy-button">Buy 500</button>
+              <button id="buyLuck1Button" class="buy-button">Buy 1000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Luck Boost Tier 2</div>
-              <div class="item-meta">+10% luck — Costs 1000 coins</div>
+              <div class="item-meta">+10% luck — Costs 2000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyLuck2Button" class="buy-button">Buy 1000</button>
+              <button id="buyLuck2Button" class="buy-button">Buy 2000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Luck Boost Tier 3</div>
-              <div class="item-meta">+20% luck — Costs 5000 coins</div>
+              <div class="item-meta">+20% luck — Costs 10000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyLuck3Button" class="buy-button">Buy 5000</button>
+              <button id="buyLuck3Button" class="buy-button">Buy 10000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Luck Boost Tier 4</div>
-              <div class="item-meta">+25% luck — Costs 7500 coins</div>
+              <div class="item-meta">+25% luck — Costs 15000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyLuck4Button" class="buy-button">Buy 7500</button>
+              <button id="buyLuck4Button" class="buy-button">Buy 15000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Luck Boost Tier 5</div>
-              <div class="item-meta">+30% luck — Costs 12000 coins</div>
+              <div class="item-meta">+30% luck — Costs 24000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buyLuck5Button" class="buy-button">Buy 12000</button>
+              <button id="buyLuck5Button" class="buy-button">Buy 24000</button>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Luck Boost Tier 6</div>
+              <div class="item-meta">+35% luck — Costs 100000 coins</div>
+            </div>
+            <div class="item-actions">
+              <button id="buyLuck6Button" class="buy-button">Buy 100000</button>
             </div>
           </div>
           <hr />
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Secret Luck Tier 1</div>
-              <div class="item-meta">+5% secret luck — Costs 2000 coins</div>
+              <div class="item-meta">+5% secret luck — Costs 4000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buySecretLuck1Button" class="buy-button">Buy 2000</button>
+              <button id="buySecretLuck1Button" class="buy-button">Buy 4000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Secret Luck Tier 2</div>
-              <div class="item-meta">+10% secret luck — Costs 3500 coins</div>
+              <div class="item-meta">+10% secret luck — Costs 7000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buySecretLuck2Button" class="buy-button">Buy 3500</button>
+              <button id="buySecretLuck2Button" class="buy-button">Buy 7000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Secret Luck Tier 3</div>
-              <div class="item-meta">+20% secret luck — Costs 5000 coins</div>
+              <div class="item-meta">+20% secret luck — Costs 10000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buySecretLuck3Button" class="buy-button">Buy 5000</button>
+              <button id="buySecretLuck3Button" class="buy-button">Buy 10000</button>
             </div>
           </div>
           <div class="upgrade-item">
             <div class="item-info">
               <div class="item-name">Secret Luck Tier 4</div>
-              <div class="item-meta">+25% secret luck — Costs 10000 coins</div>
+              <div class="item-meta">+25% secret luck — Costs 20000 coins</div>
             </div>
             <div class="item-actions">
-              <button id="buySecretLuck4Button" class="buy-button">Buy 10000</button>
+              <button id="buySecretLuck4Button" class="buy-button">Buy 20000</button>
+            </div>
+          </div>
+          <div class="upgrade-item">
+            <div class="item-info">
+              <div class="item-name">Secret Luck Tier 5</div>
+              <div class="item-meta">+30% secret luck — Costs 100000 coins</div>
+            </div>
+            <div class="item-actions">
+              <button id="buySecretLuck5Button" class="buy-button">Buy 100000</button>
             </div>
           </div>
           <hr />

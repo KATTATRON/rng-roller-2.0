@@ -1,10 +1,16 @@
 const rollButton = document.getElementById('rollButton');
 const resultEl = document.getElementById('result');
 const rollCountButton = document.getElementById('rollCountButton');
+const inventoryButton = document.getElementById('inventoryButton');
 const indexButton = document.getElementById('indexButton');
+const diamondCountButton = document.getElementById('diamondCountButton');
+const luckCountButton = document.getElementById('luckCountButton');
 const closeIndexButton = document.getElementById('closeIndexButton');
 const indexMenu = document.getElementById('indexMenu');
 const indexList = document.getElementById('indexList');
+const closeInventoryButton = document.getElementById('closeInventoryButton');
+const inventoryMenu = document.getElementById('inventoryMenu');
+const inventoryList = document.getElementById('inventoryList');
 const upgradeButton = document.getElementById('upgradeButton');
 const upgradeMenu = document.getElementById('upgradeMenu');
 const closeUpgradeButton = document.getElementById('closeUpgradeButton');
@@ -14,6 +20,7 @@ const buyLuck2Button = document.getElementById('buyLuck2Button');
 const buyLuck3Button = document.getElementById('buyLuck3Button');
 const buyLuck4Button = document.getElementById('buyLuck4Button');
 const buyLuck5Button = document.getElementById('buyLuck5Button');
+const buyLuck6Button = document.getElementById('buyLuck6Button');
 const buyCoin1Button = document.getElementById('buyCoin1Button');
 const buyCoin2Button = document.getElementById('buyCoin2Button');
 const buyCoin3Button = document.getElementById('buyCoin3Button');
@@ -24,6 +31,7 @@ const buySecretLuck1Button = document.getElementById('buySecretLuck1Button');
 const buySecretLuck2Button = document.getElementById('buySecretLuck2Button');
 const buySecretLuck3Button = document.getElementById('buySecretLuck3Button');
 const buySecretLuck4Button = document.getElementById('buySecretLuck4Button');
+const buySecretLuck5Button = document.getElementById('buySecretLuck5Button');
 const buySecondRollButton = document.getElementById('buySecondRollButton');
 const buyThirdRollButton = document.getElementById('buyThirdRollButton');
 const adminButton = document.getElementById('adminButton');
@@ -46,12 +54,15 @@ const useShinyPrefix = (name) => {
 const autoRollContainer = document.getElementById('autoRollContainer');
 const indexTabNormalButton = document.getElementById('indexTabNormal');
 const indexTabShinyButton = document.getElementById('indexTabShiny');
+const inventoryTabNormalButton = document.getElementById('inventoryTabNormal');
+const inventoryTabShinyButton = document.getElementById('inventoryTabShiny');
+const inventoryTabTeamButton = document.getElementById('inventoryTabTeam');
 
 // Upgrades state
 const upgrades = {
   autoRoll: false,
-  luckTier: 0, // 0 = none, 1-4
-  secretLuckTier: 0, // 0 = none, 1-3
+  luckTier: 0, // 0 = none, 1-6
+  secretLuckTier: 0, // 0 = none, 1-5
   coinTier: 0, // 0 = none, 1-3
   rollSpeedTier: 0, // 0 = base 2.5s, 1 = 2.0s, 2 = 1.5s, 3 = 1.0s
   thirdRoll: false // third simultaneous roll
@@ -59,14 +70,22 @@ const upgrades = {
 // allow a purchased second simultaneous roll
 upgrades.secondRoll = false;
 
+let diamondTotal = 0;
+let claimedCharacters = {};
+let teamEquipSlots = 1;
+const TEAM_EQUIP_SLOT_COST = 50;
+const MAX_TEAM_EQUIP_SLOTS = 3;
+let equippedSecrets = [];
+let currentInventoryTab = 'normal';
+
 function getRollSpeedMs() {
   return rollSpeedMsByTier[upgrades.rollSpeedTier] || 2500;
 }
 
-const luckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30];
-const luckCosts = [0, 500, 1000, 5000, 7500, 12000];
-const secretLuckTiers = [0, 0.05, 0.10, 0.20, 0.25];
-const secretLuckCosts = [0, 2000, 3500, 5000, 10000];
+const luckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30, 0.35];
+const luckCosts = [0, 1000, 2000, 10000, 15000, 24000, 100000];
+const secretLuckTiers = [0, 0.05, 0.10, 0.20, 0.25, 0.30];
+const secretLuckCosts = [0, 4000, 7000, 10000, 20000, 100000];
 const coinBoosts = [0, 0.5, 1.0, 1.5];
 // t1-t3 made 2x more expensive per user request
 const coinBoostCosts = [0, 2000, 5000, 10000];
@@ -111,15 +130,19 @@ function saveState() {
   try {
     const state = {
       coinTotal,
+      diamondTotal,
       upgrades,
       rollCount,
       rolledCharacters,
+      claimedCharacters,
       adminLuckBoost,
       potions,
       activePotionExpiry,
       goldenDiceCounter,
       goldenPending,
-      rebirthCount
+      rebirthCount,
+      teamEquipSlots,
+      equippedSecrets
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -133,6 +156,7 @@ function loadState() {
     if (!raw) return;
     const state = JSON.parse(raw);
     if (typeof state.coinTotal === 'number') coinTotal = state.coinTotal;
+    if (typeof state.diamondTotal === 'number') diamondTotal = state.diamondTotal;
     if (state.upgrades && typeof state.upgrades === 'object') {
       upgrades.autoRoll = !!state.upgrades.autoRoll;
       upgrades.luckTier = Number(state.upgrades.luckTier) || 0;
@@ -147,6 +171,12 @@ function loadState() {
       // shallow copy
       Object.keys(state.rolledCharacters).forEach(k => {
         rolledCharacters[k] = Number(state.rolledCharacters[k]) || 0;
+      });
+    }
+    if (state.claimedCharacters && typeof state.claimedCharacters === 'object') {
+      claimedCharacters = {};
+      Object.keys(state.claimedCharacters).forEach(k => {
+        if (state.claimedCharacters[k]) claimedCharacters[k] = true;
       });
     }
     if (typeof state.adminLuckBoost === 'number') {
@@ -166,6 +196,13 @@ function loadState() {
     if (typeof state.goldenDiceCounter === 'number') goldenDiceCounter = state.goldenDiceCounter || 10;
     if (typeof state.goldenPending === 'boolean') goldenPending = state.goldenPending || false;
     if (typeof state.rebirthCount === 'number') rebirthCount = Math.max(0, Math.min(rebirthLimit, state.rebirthCount));
+    if (typeof state.teamEquipSlots === 'number') {
+      teamEquipSlots = Math.max(1, Math.min(MAX_TEAM_EQUIP_SLOTS, state.teamEquipSlots));
+    }
+    if (Array.isArray(state.equippedSecrets)) {
+      equippedSecrets = state.equippedSecrets.filter(id => typeof id === 'string');
+    }
+    cleanupEquippedSecrets();
     // if any potion is active on load, start the UI timer
     if (isPotionActive('luck') || isPotionActive('coin')) startPotionTimer();
   } catch (e) {
@@ -340,6 +377,15 @@ const characters = [
     icon: `<img src="images/riegelog.png" alt="RiegelOG" class="raster-icon" />`
   },
   {
+    id: 'erena-secret-1-486287',
+    name: 'Erena',
+    tier: 'Secret',
+    chance: '1-486287',
+    weight: 1 / 486287,
+    coins: 100000,
+    icon: `<img src="images/erena.png" alt="Erena" class="raster-icon" />`
+  },
+  {
     id: 'love-rare-1-72',
     name: 'Love',
     tier: 'Rare',
@@ -496,10 +542,135 @@ function updateRollCount() {
   rollCountButton.textContent = `Roll count: ${rollCount}`;
   updateRareRollCount();
   updateRollSpeedUI();
+  updateLuckCount();
 }
 
 function updateCoinCount() {
-  coinCountButton.textContent = `Coins: ${coinTotal}`;
+  if (coinCountButton) coinCountButton.textContent = `Coins: ${coinTotal}`;
+  updateDiamondCount();
+  updateInventoryNotification();
+  updateLuckCount();
+}
+
+function updateDiamondCount() {
+  if (!diamondCountButton) return;
+  diamondCountButton.textContent = `Diamonds: ${diamondTotal}`;
+}
+
+function updateLuckCount() {
+  if (!luckCountButton) return;
+  const luckPercent = Math.round(getCurrentLuckBonus() * 100);
+  luckCountButton.textContent = `Luck: ${luckPercent}%`;
+}
+
+function getDiamondValue(character) {
+  const values = {
+    Common: 1,
+    Uncommon: 2,
+    Rare: 3,
+    Epic: 5,
+    Legendary: 7,
+    Secret: 10
+  };
+  const base = values[character.tier] || 1;
+  return base * (character.shiny ? 2 : 1);
+}
+
+function isSecretCharacter(character) {
+  return String(character.tier || '').toLowerCase() === 'secret';
+}
+
+function cleanupEquippedSecrets() {
+  equippedSecrets = equippedSecrets.filter(id => {
+    const character = allCharacters.find(c => c.id === id);
+    return character && isSecretCharacter(character) && (rolledCharacters[id] || 0) > 0;
+  });
+}
+
+function getTeamLuckBonus() {
+  return equippedSecrets.reduce((total, id) => {
+    const character = allCharacters.find(c => c.id === id);
+    if (!character) return total;
+    return total + (character.shiny ? 0.5 : 0.25);
+  }, 0);
+}
+
+function getCurrentLuckBonus() {
+  const luckTierBonus = upgrades.luckTier ? luckTiers[upgrades.luckTier] || 0 : 0;
+  const teamLuckBonus = getTeamLuckBonus();
+  const potionLuckMultiplier = isPotionActive('luck') ? 2 : 1;
+  const goldenMultiplier = goldenRollActive ? 4 : 1;
+  const rebirthMultiplier = rebirthMultipliers[rebirthCount] || 1;
+  return ((((luckTierBonus + teamLuckBonus) * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier) * rebirthMultiplier;
+}
+
+function toggleEquipSecret(character) {
+  if (!character || !isSecretCharacter(character)) return;
+  const id = character.id;
+  const owned = rolledCharacters[id] || 0;
+  if (!owned) {
+    alert('You need to own this secret before equipping it.');
+    return;
+  }
+
+  const equippedIndex = equippedSecrets.indexOf(id);
+  if (equippedIndex >= 0) {
+    equippedSecrets.splice(equippedIndex, 1);
+    saveState();
+    renderInventoryMenu();
+    return;
+  }
+
+  if (equippedSecrets.length >= teamEquipSlots) {
+    alert(`You can only equip ${teamEquipSlots} secret${teamEquipSlots === 1 ? '' : 's'} right now.`);
+    return;
+  }
+
+  equippedSecrets.push(id);
+  saveState();
+  updateLuckCount();
+  renderInventoryMenu();
+}
+
+function getTeamSlotLabel() {
+  if (teamEquipSlots >= MAX_TEAM_EQUIP_SLOTS) return 'Team is at maximum capacity';
+  return `Buy next team slot (${teamEquipSlots + 1}/${MAX_TEAM_EQUIP_SLOTS}) — ${TEAM_EQUIP_SLOT_COST} diamonds`;
+}
+
+function buyTeamSlot() {
+  if (teamEquipSlots >= MAX_TEAM_EQUIP_SLOTS) {
+    alert('Team is already at maximum capacity.');
+    return;
+  }
+  if (diamondTotal < TEAM_EQUIP_SLOT_COST) {
+    alert('Not enough diamonds.');
+    return;
+  }
+  diamondTotal -= TEAM_EQUIP_SLOT_COST;
+  teamEquipSlots += 1;
+  saveState();
+  updateDiamondCount();
+  updateLuckCount();
+  renderInventoryMenu();
+}
+
+function getPendingUnlockCount() {
+  return Object.keys(rolledCharacters).reduce((count, id) => {
+    return count + ((rolledCharacters[id] > 0 && !claimedCharacters[id]) ? 1 : 0);
+  }, 0);
+}
+
+function canRebirthNow() {
+  const current = rebirthCount;
+  const next = Math.min(rebirthLimit, current + 1);
+  const nextCost = rebirthCosts[next] || 0;
+  return current < rebirthLimit && coinTotal >= nextCost;
+}
+
+function updateInventoryNotification() {
+  if (!indexButton) return;
+  const pendingUnlocks = getPendingUnlockCount() > 0;
+  indexButton.classList.toggle('has-notification', pendingUnlocks || canRebirthNow());
 }
 
 function updateIndexTabButtons() {
@@ -507,29 +678,193 @@ function updateIndexTabButtons() {
   if (indexTabShinyButton) indexTabShinyButton.classList.toggle('active', currentIndexTab === 'shiny');
 }
 
+function updateInventoryTabButtons() {
+  if (inventoryTabNormalButton) inventoryTabNormalButton.classList.toggle('active', currentInventoryTab === 'normal');
+  if (inventoryTabShinyButton) inventoryTabShinyButton.classList.toggle('active', currentInventoryTab === 'shiny');
+  if (inventoryTabTeamButton) inventoryTabTeamButton.classList.toggle('active', currentInventoryTab === 'team');
+}
+
 function setIndexTab(tab) {
   currentIndexTab = tab;
   updateIndexTabButtons();
-  renderIndexMenu();
+  if (indexMenu && !indexMenu.classList.contains('hidden')) {
+    renderIndexMenu();
+  }
+}
+
+function setInventoryTab(tab) {
+  currentInventoryTab = tab;
+  updateInventoryTabButtons();
+  if (inventoryMenu && !inventoryMenu.classList.contains('hidden')) {
+    renderInventoryMenu();
+  }
 }
 
 function isPermanentSecretId(id) {
-  return /^(?:cat-secrett|riegelog)/i.test(String(id));
+  return /^(?:cat-secrett|riegelog|erena)/i.test(String(id));
 }
 
 function renderIndexMenu() {
   indexList.innerHTML = '';
-  const rolledEntries = allCharacters.filter(character => rolledCharacters[character.id]);
-  const visibleEntries = rolledEntries.filter(character => currentIndexTab === 'shiny' ? !!character.shiny : !character.shiny);
+  const visibleEntries = allCharacters.filter(character => currentIndexTab === 'shiny' ? !!character.shiny : !character.shiny);
+  const rarityOrder = {
+    Common: 0,
+    Uncommon: 1,
+    Rare: 2,
+    Epic: 3,
+    Legendary: 4,
+    Secret: 5
+  };
 
   if (!visibleEntries.length) {
-    const emptyLabel = currentIndexTab === 'shiny' ? 'No shiny rolls yet. Keep rolling to find one.' : 'No rolls yet. Press Roll to start collecting characters.';
-    indexList.innerHTML = `<div class="index-empty">${emptyLabel}</div>`;
+    const empty = document.createElement('div');
+    empty.className = 'index-empty';
+    empty.textContent = 'No characters available.';
+    indexList.appendChild(empty);
     return;
   }
 
-  visibleEntries.sort((a, b) => rolledCharacters[b.id] - rolledCharacters[a.id]);
+  visibleEntries.sort((a, b) => {
+    const tierA = rarityOrder[a.tier] ?? 0;
+    const tierB = rarityOrder[b.tier] ?? 0;
+    if (tierA !== tierB) return tierA - tierB;
+    return (b.weight || 0) - (a.weight || 0);
+  });
+
   visibleEntries.forEach(character => {
+    const owned = rolledCharacters[character.id] || 0;
+    const unlocked = owned > 0;
+    const canClaim = unlocked && !claimedCharacters[character.id];
+    const countLabel = unlocked ? `Rolled ${owned} time${owned === 1 ? '' : 's'}` : 'Not unlocked yet';
+
+    const item = document.createElement('div');
+    item.className = `index-item${character.shiny ? ' shiny' : ''}${!unlocked ? ' locked' : ''}`;
+
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'item-icon';
+    iconWrapper.innerHTML = character.icon;
+
+    const info = document.createElement('div');
+    info.className = 'item-info';
+    info.innerHTML = `
+      <div class="item-name">${character.name}</div>
+      <div class="item-meta">${character.tier} • ${character.chance}</div>
+      <div class="item-count">${countLabel}</div>
+    `;
+
+    const actions = document.createElement('div');
+    actions.className = 'item-actions';
+    const viewBtn = document.createElement('button');
+    viewBtn.type = 'button';
+    viewBtn.className = 'view-button';
+    viewBtn.dataset.id = character.id;
+    viewBtn.textContent = unlocked ? 'View' : 'Preview';
+    viewBtn.addEventListener('click', () => openPreview(character));
+    actions.appendChild(viewBtn);
+
+    if (canClaim) {
+      const claimBtn = document.createElement('button');
+      claimBtn.type = 'button';
+      claimBtn.className = 'claim-button';
+      claimBtn.dataset.id = character.id;
+      claimBtn.textContent = `Claim ${getDiamondValue(character)} ♦`;
+      claimBtn.addEventListener('click', () => claimDiamond(character));
+      actions.appendChild(claimBtn);
+    }
+
+    item.appendChild(iconWrapper);
+    item.appendChild(info);
+    item.appendChild(actions);
+    indexList.appendChild(item);
+  });
+}
+
+function claimDiamond(character) {
+  if (!character || !rolledCharacters[character.id]) return;
+  if (claimedCharacters[character.id]) return;
+  const amount = getDiamondValue(character);
+  diamondTotal += amount;
+  claimedCharacters[character.id] = true;
+  updateDiamondCount();
+  updateInventoryNotification();
+  saveState();
+  showPopup(`Claimed ${amount} diamonds for unlocking ${character.name}!`, 3000);
+  renderIndexMenu();
+}
+
+function renderInventoryMenu() {
+  inventoryList.innerHTML = '';
+
+  if (currentInventoryTab === 'team') {
+    cleanupEquippedSecrets();
+    const secretOwned = allCharacters.filter(character => isSecretCharacter(character) && rolledCharacters[character.id] > 0);
+
+    const header = document.createElement('div');
+    header.className = 'item-meta';
+    header.textContent = `Equipped secrets: ${equippedSecrets.length} / ${teamEquipSlots}`;
+    inventoryList.appendChild(header);
+
+    const teamActions = document.createElement('div');
+    teamActions.className = 'item-actions admin-actions';
+    const teamButton = document.createElement('button');
+    teamButton.type = 'button';
+    teamButton.className = 'buy-button';
+    teamButton.textContent = getTeamSlotLabel();
+    teamButton.disabled = teamEquipSlots >= MAX_TEAM_EQUIP_SLOTS || diamondTotal < TEAM_EQUIP_SLOT_COST;
+    teamButton.addEventListener('click', buyTeamSlot);
+    teamActions.appendChild(teamButton);
+    inventoryList.appendChild(teamActions);
+
+    if (!secretOwned.length) {
+      const empty = document.createElement('div');
+      empty.className = 'index-empty';
+      empty.textContent = 'No secret RNGs in inventory yet. Roll until you get one.';
+      inventoryList.appendChild(empty);
+      return;
+    }
+
+    secretOwned.sort((a, b) => (rolledCharacters[b.id] || 0) - (rolledCharacters[a.id] || 0));
+    secretOwned.forEach(character => {
+      const equipped = equippedSecrets.includes(character.id);
+      const item = document.createElement('div');
+      item.className = `index-item${character.shiny ? ' shiny' : ''}`;
+      item.innerHTML = `
+        <div class="item-icon">${character.icon}</div>
+        <div class="item-info">
+          <div class="item-name">${character.name}</div>
+          <div class="item-meta">${character.tier} • ${character.chance}</div>
+          <div class="item-count">Rolled ${rolledCharacters[character.id]} time${rolledCharacters[character.id] === 1 ? '' : 's'}</div>
+        </div>
+        <div class="item-actions">
+          <button class="view-button" data-id="${character.id}">View</button>
+          <button class="equip-button" data-id="${character.id}">${equipped ? 'Unequip' : 'Equip'}</button>
+        </div>
+      `;
+      inventoryList.appendChild(item);
+      const viewBtn = item.querySelector('.view-button');
+      const equipBtn = item.querySelector('.equip-button');
+      if (viewBtn) viewBtn.addEventListener('click', () => openPreview(character));
+      if (equipBtn) {
+        equipBtn.disabled = !equipped && equippedSecrets.length >= teamEquipSlots;
+        equipBtn.addEventListener('click', () => toggleEquipSecret(character));
+      }
+    });
+    return;
+  }
+
+  const ownedEntries = allCharacters.filter(character => rolledCharacters[character.id] && (currentInventoryTab === 'shiny' ? !!character.shiny : !character.shiny));
+
+  if (!ownedEntries.length) {
+    const emptyLabel = currentInventoryTab === 'shiny'
+      ? 'No shiny RNGs in inventory yet. Roll until you get one.'
+      : 'No RNGs in inventory yet. Roll to add them.';
+    inventoryList.innerHTML = `<div class="index-empty">${emptyLabel}</div>`;
+    return;
+  }
+
+  ownedEntries.sort((a, b) => (rolledCharacters[b.id] || 0) - (rolledCharacters[a.id] || 0));
+  ownedEntries.forEach(character => {
+    const owned = rolledCharacters[character.id] || 0;
     const item = document.createElement('div');
     item.className = `index-item${character.shiny ? ' shiny' : ''}`;
     item.innerHTML = `
@@ -537,14 +872,15 @@ function renderIndexMenu() {
       <div class="item-info">
         <div class="item-name">${character.name}</div>
         <div class="item-meta">${character.tier} • ${character.chance}</div>
-        <div class="item-count">Rolled ${rolledCharacters[character.id]} time${rolledCharacters[character.id] === 1 ? '' : 's'}</div>
+        <div class="item-count">Rolled ${owned} time${owned === 1 ? '' : 's'}</div>
       </div>
       <div class="item-actions">
         <button class="view-button" data-id="${character.id}">View</button>
         ${isPermanentSecretId(character.id) ? '<button class="sell-button" disabled>Cannot sell</button>' : `<button class="sell-button" data-id="${character.id}">Sell</button>`}
       </div>
     `;
-    indexList.appendChild(item);
+
+    inventoryList.appendChild(item);
     const viewBtn = item.querySelector('.view-button');
     const sellBtn = item.querySelector('.sell-button');
     if (viewBtn) viewBtn.addEventListener('click', () => openPreview(character));
@@ -847,6 +1183,7 @@ function updatePotionUI() {
     }
     goldenBtn.classList.toggle('golden-ready', goldenPending && !goldenRollActive);
   }
+  updateLuckCount();
 }
 
 function formatTimeRemaining(ms) {
@@ -1025,6 +1362,8 @@ function resetAdminAccount() {
   upgrades.rollSpeedTier = 0;
   upgrades.secondRoll = false;
   upgrades.thirdRoll = false;
+  diamondTotal = 0;
+  claimedCharacters = {};
   goldenDiceCounter = 10;
   goldenPending = false;
   Object.keys(rolledCharacters).forEach(key => delete rolledCharacters[key]);
@@ -1068,6 +1407,7 @@ function updateRebirthUI() {
   const nextCost = rebirthCosts[next] || 0;
   rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult.toFixed(2)}x<br/>Next rebirth: ${next} — Boost ${nextMult.toFixed(2)}x — Cost ${nextCost}`;
   if (doRebirthButton) doRebirthButton.disabled = current >= rebirthLimit || coinTotal < nextCost;
+  updateInventoryNotification();
 }
 
 function doRebirth() {
@@ -1096,6 +1436,8 @@ function doRebirth() {
   potions.coin = 0;
   activePotionExpiry.luck = 0;
   activePotionExpiry.coin = 0;
+  diamondTotal = 0;
+  claimedCharacters = {};
   goldenDiceCounter = 10;
   goldenPending = false;
   if (autoRollInterval) { clearInterval(autoRollInterval); autoRollInterval = null; }
@@ -1141,6 +1483,10 @@ function updateUpgradeUI() {
   if (buyLuck5Button) {
     buyLuck5Button.disabled = !canBuyTier(upgrades.luckTier, 5) || coinTotal < luckCosts[5];
     buyLuck5Button.textContent = upgrades.luckTier >= 5 ? 'Owned' : `Buy ${luckCosts[5]}`;
+  }
+  if (buyLuck6Button) {
+    buyLuck6Button.disabled = !canBuyTier(upgrades.luckTier, 6) || coinTotal < luckCosts[6];
+    buyLuck6Button.textContent = upgrades.luckTier >= 6 ? 'Owned' : `Buy ${luckCosts[6]}`;
   }
   if (buyCoin1Button) {
     buyCoin1Button.disabled = !canBuyTier(upgrades.coinTier, 1) || coinTotal < coinBoostCosts[1];
@@ -1190,6 +1536,10 @@ function updateUpgradeUI() {
   if (buySecretLuck4Button) {
     buySecretLuck4Button.disabled = !canBuyTier(upgrades.secretLuckTier, 4) || coinTotal < secretLuckCosts[4];
     buySecretLuck4Button.textContent = upgrades.secretLuckTier >= 4 ? 'Owned' : `Buy ${secretLuckCosts[4]}`;
+  }
+  if (buySecretLuck5Button) {
+    buySecretLuck5Button.disabled = !canBuyTier(upgrades.secretLuckTier, 5) || coinTotal < secretLuckCosts[5];
+    buySecretLuck5Button.textContent = upgrades.secretLuckTier >= 5 ? 'Owned' : `Buy ${secretLuckCosts[5]}`;
   }
   // ensure toggle exists if auto-roll purchased
   if (upgrades.autoRoll) ensureAutoRollToggle();
@@ -1282,10 +1632,11 @@ function weightedRandom(items, opts = {}) {
   // Apply luck boost to rarer tiers by increasing their weights proportionally
   const luckTierBonus = upgrades.luckTier ? luckTiers[upgrades.luckTier] || 0 : 0;
   const secretLuckTierBonus = upgrades.secretLuckTier ? secretLuckTiers[upgrades.secretLuckTier] || 0 : 0;
+  const teamLuckBonus = getTeamLuckBonus();
   const potionLuckMultiplier = isPotionActive('luck') ? 2 : 1;
   const goldenMultiplier = typeof opts.goldenMultiplier === 'number' ? opts.goldenMultiplier : (goldenRollActive ? 4 : 1);
   const rebirthMultiplier = rebirthMultipliers[rebirthCount] || 1;
-  const luckBonus = (((luckTierBonus * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier) * rebirthMultiplier;
+  const luckBonus = ((((luckTierBonus + teamLuckBonus) * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier) * rebirthMultiplier;
   const tierMultiplier = {
     common: 0,
     uncommon: 0.25,
@@ -1712,10 +2063,28 @@ function closeIndexMenu() {
   indexMenu.setAttribute('aria-hidden', 'true');
 }
 
+function openInventoryMenu() {
+  if (!inventoryMenu) return;
+  currentInventoryTab = 'normal';
+  inventoryMenu.classList.remove('hidden');
+  inventoryMenu.setAttribute('aria-hidden', 'false');
+  updateInventoryTabButtons();
+  renderInventoryMenu();
+}
+
+function closeInventoryMenu() {
+  if (!inventoryMenu) return;
+  inventoryMenu.classList.add('hidden');
+  inventoryMenu.setAttribute('aria-hidden', 'true');
+}
+
 rollButton.addEventListener('click', startRolling);
-indexButton.addEventListener('click', openIndexMenu);
-closeIndexButton.addEventListener('click', closeIndexMenu);
-indexMenu.querySelector('.index-overlay').addEventListener('click', closeIndexMenu);
+if (inventoryButton) inventoryButton.addEventListener('click', openInventoryMenu);
+if (indexButton) indexButton.addEventListener('click', openIndexMenu);
+if (closeIndexButton) closeIndexButton.addEventListener('click', closeIndexMenu);
+if (closeInventoryButton) closeInventoryButton.addEventListener('click', closeInventoryMenu);
+if (indexMenu) indexMenu.querySelector('.index-overlay').addEventListener('click', closeIndexMenu);
+if (inventoryMenu) inventoryMenu.querySelector('.index-overlay').addEventListener('click', closeInventoryMenu);
 if (upgradeButton) upgradeButton.addEventListener('click', openUpgradeMenu);
 if (closeUpgradeButton) closeUpgradeButton.addEventListener('click', closeUpgradeMenu);
 if (upgradeMenu) upgradeMenu.querySelector('.index-overlay').addEventListener('click', closeUpgradeMenu);
@@ -1732,6 +2101,7 @@ if (buySecretLuck1Button) buySecretLuck1Button.addEventListener('click', () => b
 if (buySecretLuck2Button) buySecretLuck2Button.addEventListener('click', () => buySecretLuckTier(2));
 if (buySecretLuck3Button) buySecretLuck3Button.addEventListener('click', () => buySecretLuckTier(3));
 if (buySecretLuck4Button) buySecretLuck4Button.addEventListener('click', () => buySecretLuckTier(4));
+if (buySecretLuck5Button) buySecretLuck5Button.addEventListener('click', () => buySecretLuckTier(5));
 if (buyCoin1Button) buyCoin1Button.addEventListener('click', () => buyCoinBoostTier(1));
 if (buyCoin2Button) buyCoin2Button.addEventListener('click', () => buyCoinBoostTier(2));
 if (buyCoin3Button) buyCoin3Button.addEventListener('click', () => buyCoinBoostTier(3));
@@ -1739,6 +2109,9 @@ if (buySecondRollButton) buySecondRollButton.addEventListener('click', buySecond
 if (buyThirdRollButton) buyThirdRollButton.addEventListener('click', buyThirdRoll);
 if (indexTabNormalButton) indexTabNormalButton.addEventListener('click', () => setIndexTab('normal'));
 if (indexTabShinyButton) indexTabShinyButton.addEventListener('click', () => setIndexTab('shiny'));
+if (inventoryTabNormalButton) inventoryTabNormalButton.addEventListener('click', () => setInventoryTab('normal'));
+if (inventoryTabShinyButton) inventoryTabShinyButton.addEventListener('click', () => setInventoryTab('shiny'));
+if (inventoryTabTeamButton) inventoryTabTeamButton.addEventListener('click', () => setInventoryTab('team'));
 if (adminButton) adminButton.addEventListener('click', promptAdminPassword);
 const rebirthButton = document.getElementById('rebirthButton');
 const rebirthMenu = document.getElementById('rebirthMenu');
@@ -1766,6 +2139,8 @@ if (previewModalEl) previewModalEl.querySelector('.index-overlay').addEventListe
 loadState();
 updateRollCount();
 updateCoinCount();
+updateDiamondCount();
+updateInventoryNotification();
 renderIndexMenu();
 updateUpgradeUI();
 ensureAutoRollToggle();
