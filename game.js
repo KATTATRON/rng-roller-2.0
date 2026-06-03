@@ -86,6 +86,9 @@ upgrades.diamondSecretLuckTier = 0;
 
 let diamondTotal = 0;
 let claimedCharacters = {};
+let completedIndexTabs = { normal: false, shiny: false, inverted: false };
+let doppelGObtained = { normal: false, shiny: false, inverted: false };
+let indexCompletionLuckCounts = { normal: 0, shiny: 0, inverted: 0 };
 let teamEquipSlots = 1;
 const TEAM_EQUIP_SLOT_COST = 50;
 const MAX_TEAM_EQUIP_SLOTS = 3;
@@ -136,6 +139,7 @@ const SHINY_POTION_DURATION_MS = 30 * 1000; // 30 seconds
 const POTION_DROP_LUCK_CHANCE = 0.01; // 1%
 const POTION_DROP_COIN_CHANCE = 0.005; // 0.5%
 const POTION_DROP_SHINY_CHANCE = 0.0001; // 0.01%
+const DIAMOND_DROP_CHANCE = 0.01; // 1%
 const potions = { luck: 0, coin: 0, shiny: 0 };
 const activePotionExpiry = { luck: 0, coin: 0, shiny: 0 };
 
@@ -158,7 +162,10 @@ function saveState() {
       goldenPending,
       rebirthCount,
       teamEquipSlots,
-      equippedSecrets
+      equippedSecrets,
+      completedIndexTabs,
+      doppelGObtained,
+      indexCompletionLuckCounts
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -218,6 +225,26 @@ function loadState() {
     }
     if (Array.isArray(state.equippedSecrets)) {
       equippedSecrets = state.equippedSecrets.filter(id => typeof id === 'string');
+    }
+    if (state.completedIndexTabs && typeof state.completedIndexTabs === 'object') {
+      completedIndexTabs = { normal: false, shiny: false, inverted: false };
+      Object.keys(state.completedIndexTabs).forEach(k => {
+        if (state.completedIndexTabs[k]) completedIndexTabs[k] = true;
+      });
+    }
+    if (state.doppelGObtained && typeof state.doppelGObtained === 'object') {
+      doppelGObtained = { normal: false, shiny: false, inverted: false };
+      Object.keys(state.doppelGObtained).forEach(k => {
+        if (state.doppelGObtained[k]) doppelGObtained[k] = true;
+      });
+    }
+    if (state.indexCompletionLuckCounts && typeof state.indexCompletionLuckCounts === 'object') {
+      indexCompletionLuckCounts = { normal: 0, shiny: 0, inverted: 0 };
+      Object.keys(state.indexCompletionLuckCounts).forEach(k => {
+        if (typeof state.indexCompletionLuckCounts[k] === 'number') {
+          indexCompletionLuckCounts[k] = Math.max(0, Math.floor(state.indexCompletionLuckCounts[k]));
+        }
+      });
     }
     cleanupEquippedSecrets();
     // if any potion is active on load, start the UI timer
@@ -521,6 +548,17 @@ const characters = [
     weight: 1 / 200,
     coins: 200,
     icon: `<svg viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Great Pyramid"><polygon points="60,4 112,92 8,92" fill="#facc15" stroke="#a16207" stroke-width="4"/><rect x="20" y="86" width="80" height="6" fill="#f3e6a9"/></svg>`
+  },
+  // Exclusive: Doppel G - obtained by completing index
+  {
+    id: 'doppel-g-exclusive',
+    name: 'Doppel G',
+    tier: 'Secret',
+    chance: 'Exclusive',
+    weight: 0,
+    coins: 0,
+    exclusive: true,
+    icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Doppel G"><g transform="translate(10 20)"><rect x="0" y="0" width="100" height="70" rx="14" ry="14" fill="#7b5e26" stroke="#4c3d17" stroke-width="4"/><path d="M14 16 H86" stroke="#d9b86d" stroke-width="6" stroke-linecap="round"/><rect x="6" y="8" width="28" height="24" rx="8" ry="8" fill="#c89f4a"/><circle cx="28" cy="20" r="5" fill="#4c3d17"/><text x="58" y="45" font-size="28" font-weight="800" fill="#f8e9b6" text-anchor="middle" font-family="Inter, system-ui, sans-serif">GG</text></g></svg>`
   }
 ];
 
@@ -529,12 +567,14 @@ const shinyCharacters = characters.map(character => {
   const shinyChance = match ? `${match[1]}-${Number(match[2]) * 10}` : character.chance;
   // Shiny coins are 2x the normal character coin value
   const shinyCoins = (character.coins || 0) * 2;
+  // Shiny variants use the same rarity multiplier as normal characters
+  const shinyWeight = (character.weight || 0) / 10;
   return {
     ...character,
     id: `${character.id}-shiny`,
     name: `Shiny ${character.name}`,
     chance: shinyChance,
-    weight: (character.weight || 0) / 10,
+    weight: shinyWeight,
     coins: shinyCoins,
     shiny: true,
     icon: String(character.icon).replace('<svg', '<svg class="shiny-svg"')
@@ -545,12 +585,14 @@ const invertedCharacters = characters.map(character => {
   const invertedChance = match ? `${match[1]}-${Number(match[2]) * 5}` : character.chance;
   // Inverted coins are 1.5x the normal character coin value
   const invertedCoins = Math.floor((character.coins || 0) * 1.5);
+  // Inverted variants use the same rarity multiplier as normal characters
+  const invertedWeight = (character.weight || 0) / 5;
   return {
     ...character,
     id: `${character.id}-inverted`,
     name: `Inverted ${character.name}`,
     chance: invertedChance,
-    weight: (character.weight || 0) / 5,
+    weight: invertedWeight,
     coins: invertedCoins,
     inverted: true,
     icon: String(character.icon).replace('<svg', '<svg class="inverted-svg"')
@@ -674,13 +716,18 @@ function getTeamLuckBonus() {
   }, 0);
 }
 
+function getIndexCompletionLuckBonus() {
+  return (indexCompletionLuckCounts.normal + indexCompletionLuckCounts.shiny + indexCompletionLuckCounts.inverted) * 0.05;
+}
+
 function getCurrentLuckBonus() {
   const luckTierBonus = upgrades.luckTier ? luckTiers[upgrades.luckTier] || 0 : 0;
   const teamLuckBonus = getTeamLuckBonus();
   const rebirthBonus = rebirthCount * 0.05;
+  const indexCompletionBonus = getIndexCompletionLuckBonus();
   const potionLuckMultiplier = isPotionActive('luck') ? 2 : 1;
   const goldenMultiplier = goldenRollActive ? 4 : 1;
-  return (((luckTierBonus + teamLuckBonus + rebirthBonus) * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier;
+  return (((luckTierBonus + teamLuckBonus + rebirthBonus + indexCompletionBonus) * potionLuckMultiplier) + adminLuckBoost) * goldenMultiplier;
 }
 
 function toggleEquipSecret(character) {
@@ -782,7 +829,7 @@ function setInventoryTab(tab) {
 }
 
 function isPermanentSecretId(id) {
-  return /^(?:cat-secrett|riegelog|erena|avokado)/i.test(String(id));
+  return /^(?:cat-secrett|riegelog|erena|avokado|doppel-g-exclusive(?:-(?:shiny|inverted))?)/i.test(String(id));
 }
 
 function renderIndexMenu() {
@@ -800,6 +847,37 @@ function renderIndexMenu() {
     Legendary: 4,
     Secret: 5
   };
+
+  const indexProgress = document.getElementById('indexProgressContainer');
+  const claimContainer = document.getElementById('claimDoppelGContainer');
+  const categoryEntries = visibleEntries.filter(character => !isSecretCharacter(character) && !character.exclusive);
+  const categoryOwnedCount = categoryEntries.reduce((count, character) => {
+    return count + ((rolledCharacters[character.id] || 0) > 0 ? 1 : 0);
+  }, 0);
+  const categoryTotalCount = categoryEntries.length;
+  const progressPercent = categoryTotalCount ? Math.round((categoryOwnedCount / categoryTotalCount) * 100) : 0;
+  const isComplete = categoryTotalCount > 0 && categoryOwnedCount >= categoryTotalCount;
+
+  if (indexProgress) {
+    const progressText = indexProgress.querySelector('.progress-text');
+    const progressFill = indexProgress.querySelector('.progress-fill');
+    if (progressText) progressText.textContent = `Progress: ${categoryOwnedCount} / ${categoryTotalCount}`;
+    if (progressFill) progressFill.style.width = `${progressPercent}%`;
+  }
+  if (claimContainer) {
+    claimContainer.innerHTML = '';
+    if (isComplete) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'claim-button';
+      const hasDoppel = !!doppelGObtained[currentIndexTab];
+      button.textContent = hasDoppel
+        ? '+5% Luck for completing again'
+        : `Claim ${currentIndexTab === 'shiny' ? 'Shiny ' : currentIndexTab === 'inverted' ? 'Inverted ' : ''}Doppel G`;
+      button.addEventListener('click', () => claimDoppelG(currentIndexTab));
+      claimContainer.appendChild(button);
+    }
+  }
 
   if (!visibleEntries.length) {
     const empty = document.createElement('div');
@@ -850,7 +928,7 @@ function renderIndexMenu() {
     viewBtn.addEventListener('click', () => openPreview(character));
     actions.appendChild(viewBtn);
 
-    if (canClaim) {
+    if (canClaim && !character.exclusive) {
       const claimBtn = document.createElement('button');
       claimBtn.type = 'button';
       claimBtn.className = 'claim-button';
@@ -879,6 +957,34 @@ function claimDiamond(character, amountArg) {
   updateInventoryNotification();
   saveState();
   showPopup(`Claimed ${amount} diamonds for unlocking ${character.name}!`, 3000);
+  renderIndexMenu();
+}
+
+function claimDoppelG(tab) {
+  const normalizedTab = String(tab || '').toLowerCase();
+  const bonusEligible = !!doppelGObtained[normalizedTab];
+  if (bonusEligible) {
+    indexCompletionLuckCounts[normalizedTab] = (indexCompletionLuckCounts[normalizedTab] || 0) + 1;
+    saveState();
+    updateLuckCount();
+    showPopup(`Completed ${normalizedTab} index again! +5% luck awarded.`, 3000);
+    return;
+  }
+
+  const baseCharacter = allCharacters.find(character => character.id === 'doppel-g-exclusive');
+  if (!baseCharacter) return;
+  const claimId = normalizedTab === 'shiny'
+    ? `${baseCharacter.id}-shiny`
+    : normalizedTab === 'inverted'
+      ? `${baseCharacter.id}-inverted`
+      : baseCharacter.id;
+  const character = allCharacters.find(c => c.id === claimId);
+  if (!character) return;
+  rolledCharacters[character.id] = (rolledCharacters[character.id] || 0) + 1;
+  doppelGObtained[normalizedTab] = true;
+  saveState();
+  showPopup(`You received ${character.name}!`, 3000);
+  updateInventoryNotification();
   renderIndexMenu();
 }
 
@@ -2122,7 +2228,7 @@ function startRolling() {
       }
     }
     updatePotionUI();
-    const rollPool = isPotionActive('shiny') ? shinyCharacters : allCharacters;
+    const rollPool = (isPotionActive('shiny') ? shinyCharacters : allCharacters).filter(c => !c.exclusive);
     const character = weightedRandom(rollPool);
     rollCount += 1;
     // Base coin multiplier is 1x; each coin upgrade tier adds +50% per tier.
@@ -2158,6 +2264,11 @@ function startRolling() {
       playPotionDropSound('luck');
       showPopup('You found a Shiny Potion!', 3000);
     }
+    if (Math.random() < DIAMOND_DROP_CHANCE) {
+      diamondTotal += 1;
+      updateDiamondCount();
+      showPopup('You found 1 diamond!', 3000);
+    }
     updateRollCount();
     updateCoinCount();
     saveState();
@@ -2166,20 +2277,28 @@ function startRolling() {
     let character2 = null;
     let earnedCoins2;
     if (upgrades.secondRoll) {
-      character2 = weightedRandom(rollPool, { goldenMultiplier: 1 });
+      character2 = weightedRandom(rollPool);
       const baseValue2 = (character2.coins || 0) * (character2.shiny ? 2 : 1);
       earnedCoins2 = Math.floor(baseValue2 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins2;
       rolledCharacters[character2.id] = (rolledCharacters[character2.id] || 0) + 1;
+      if (Math.random() < DIAMOND_DROP_CHANCE) {
+        diamondTotal += 1;
+        updateDiamondCount();
+      }
     }
     let character3 = null;
     let earnedCoins3;
     if (upgrades.thirdRoll) {
-      character3 = weightedRandom(rollPool, { goldenMultiplier: 1 });
+      character3 = weightedRandom(rollPool);
       const baseValue3 = (character3.coins || 0) * (character3.shiny ? 2 : 1);
       earnedCoins3 = Math.floor(baseValue3 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins3;
       rolledCharacters[character3.id] = (rolledCharacters[character3.id] || 0) + 1;
+      if (Math.random() < DIAMOND_DROP_CHANCE) {
+        diamondTotal += 1;
+        updateDiamondCount();
+      }
     }
     // stop flashing and show final
     if (flasher1 && typeof flasher1.stop === 'function') flasher1.stop(character);

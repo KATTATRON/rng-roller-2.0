@@ -304,6 +304,9 @@ p {
   position: relative;
   width: min(100%, 520px);
   max-height: 80vh;
+  min-height: 55vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
   overflow: hidden;
   background: #0f172a;
   border: 1px solid rgba(148, 163, 184, 0.2);
@@ -353,8 +356,9 @@ p {
   padding: 1rem 1.5rem 1.5rem;
   display: grid;
   gap: 0.85rem;
-  max-height: calc(80vh - 88px);
   overflow: auto;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .upgrade-item {
@@ -568,9 +572,58 @@ p {
 
 .index-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
   padding: 0 1.5rem 0.85rem;
+}
+
+.index-progress-container {
+  padding: 0 1.5rem 1.25rem;
+  display: grid;
+  gap: 0.65rem;
+  background: #0f172a;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.progress-text {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.progress-bar {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(135deg,#22c55e,#38bdf8);
+  transition: width 220ms ease;
+}
+
+.index-completion-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.claim-button {
+  background: linear-gradient(135deg,#34d399,#10b981);
+  color: #fff;
+  border: none;
+  padding: 0.55rem 0.9rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.claim-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tab-button {
