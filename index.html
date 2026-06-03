@@ -20,6 +20,7 @@
         <button id="goldenDiceButton" class="potion-button golden-dice">Golden Dice: 10</button>
         <button id="useLuckPotionButton" class="potion-button">Luck Potions: 0</button>
         <button id="useCoinPotionButton" class="potion-button">Coin Potions: 0</button>
+        <button id="useShinyPotionButton" class="potion-button shiny-potion">Shiny Potions: 0</button>
       </div>
       <div class="roll-controls">
         <button id="rollButton" class="roll-button">Roll</button>
@@ -284,6 +285,22 @@
           <div class="admin-field">
             <label for="adminLuckBoost">Luck boost %</label>
             <input id="adminLuckBoost" type="number" min="0" value="0" />
+          </div>
+          <div class="admin-field">
+            <label for="adminRebirthCount">Rebirths to add</label>
+            <input id="adminRebirthCount" type="number" min="0" value="0" />
+          </div>
+          <div class="admin-field">
+            <label for="adminLuckPotionAmount">Luck potions to add</label>
+            <input id="adminLuckPotionAmount" type="number" min="0" value="0" />
+          </div>
+          <div class="admin-field">
+            <label for="adminCoinPotionAmount">Coin potions to add</label>
+            <input id="adminCoinPotionAmount" type="number" min="0" value="0" />
+          </div>
+          <div class="admin-field">
+            <label for="adminShinyPotionAmount">Shiny potions to add</label>
+            <input id="adminShinyPotionAmount" type="number" min="0" value="0" />
           </div>
           <div class="item-actions admin-actions">
             <button id="adminApplyButton" class="buy-button">Apply</button>

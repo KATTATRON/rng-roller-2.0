@@ -33,6 +33,10 @@ const adminRngNameInput = document.getElementById('adminRngName');
 const adminRngQtyInput = document.getElementById('adminRngQty');
 const adminCoinAmountInput = document.getElementById('adminCoinAmount');
 const adminLuckBoostInput = document.getElementById('adminLuckBoost');
+const adminRebirthCountInput = document.getElementById('adminRebirthCount');
+const adminLuckPotionAmountInput = document.getElementById('adminLuckPotionAmount');
+const adminCoinPotionAmountInput = document.getElementById('adminCoinPotionAmount');
+const adminShinyPotionAmountInput = document.getElementById('adminShinyPotionAmount');
 const adminApplyButton = document.getElementById('adminApplyButton');
 const adminResetButton = document.getElementById('adminResetButton');
 const adminResetAccountButton = document.getElementById('adminResetAccountButton');
@@ -79,8 +83,13 @@ let rebirthCount = 0;
 const rebirthLimit = 8;
 // extended multipliers for 0..8 (0=no rebirth)
 const rebirthMultipliers = [1, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0];
-// Rebirth costs: start at 15k for rebirth 1 and increase by 5k each step up to 8
-const rebirthCosts = [0, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000];
+function getRebirthMultiplier(count) {
+  const index = Math.max(0, Math.floor(count));
+  if (index < rebirthMultipliers.length) return rebirthMultipliers[index];
+  return rebirthMultipliers[rebirthMultipliers.length - 1] + 0.25 * (index - (rebirthMultipliers.length - 1));
+}
+// Rebirth costs: start at 150k for rebirth 1 and increase by 50k each step up to 8
+const rebirthCosts = [0, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000];
 // Golden dice state
 let goldenDiceCounter = 10;
 let goldenRollActive = false;
@@ -88,10 +97,12 @@ let goldenPending = false;
 let potionTimerIntervalId = null;
 // Potions
 const POTION_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const SHINY_POTION_DURATION_MS = 30 * 1000; // 30 seconds
 const POTION_DROP_LUCK_CHANCE = 0.01; // 1%
 const POTION_DROP_COIN_CHANCE = 0.005; // 0.5%
-const potions = { luck: 0, coin: 0 };
-const activePotionExpiry = { luck: 0, coin: 0 };
+const POTION_DROP_SHINY_CHANCE = 0.0001; // 0.01%
+const potions = { luck: 0, coin: 0, shiny: 0 };
+const activePotionExpiry = { luck: 0, coin: 0, shiny: 0 };
 
 // Persistence: save/load coins and upgrades
 const STORAGE_KEY = 'rng_game_state_v1';
@@ -103,12 +114,12 @@ function saveState() {
       upgrades,
       rollCount,
       rolledCharacters,
-      adminLuckBoost
-      ,potions,
+      adminLuckBoost,
+      potions,
       activePotionExpiry,
       goldenDiceCounter,
-      goldenPending
-        ,rebirthCount
+      goldenPending,
+      rebirthCount
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -128,6 +139,7 @@ function loadState() {
       upgrades.secretLuckTier = Number(state.upgrades.secretLuckTier) || 0;
       upgrades.coinTier = Number(state.upgrades.coinTier) || 0;
       upgrades.rollSpeedTier = Number(state.upgrades.rollSpeedTier) || 0;
+      upgrades.secondRoll = !!state.upgrades.secondRoll;
       upgrades.thirdRoll = !!state.upgrades.thirdRoll;
     }
     if (typeof state.rollCount === 'number') rollCount = state.rollCount;
@@ -144,10 +156,12 @@ function loadState() {
     if (state.potions && typeof state.potions === 'object') {
       potions.luck = Number(state.potions.luck) || 0;
       potions.coin = Number(state.potions.coin) || 0;
+      potions.shiny = Number(state.potions.shiny) || 0;
     }
     if (state.activePotionExpiry && typeof state.activePotionExpiry === 'object') {
       activePotionExpiry.luck = Number(state.activePotionExpiry.luck) || 0;
       activePotionExpiry.coin = Number(state.activePotionExpiry.coin) || 0;
+      activePotionExpiry.shiny = Number(state.activePotionExpiry.shiny) || 0;
     }
     if (typeof state.goldenDiceCounter === 'number') goldenDiceCounter = state.goldenDiceCounter || 10;
     if (typeof state.goldenPending === 'boolean') goldenPending = state.goldenPending || false;
@@ -295,7 +309,7 @@ const characters = [
     chance: '1-2500',
     weight: 1 / 2500,
     coins: 2500,
-    icon: `<svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg"><polygon points="80,8 98,56 150,56 106,88 122,136 80,108 38,136 54,88 10,56 62,56" fill="#facc15" stroke="#92400e" stroke-width="4"/><circle cx="58" cy="60" r="4" fill="#92400e"/><circle cx="102" cy="60" r="4" fill="#92400e"/></svg>`
+    icon: `<img src="images/calling-star.png" alt="The Calling Star" class="raster-icon" />`
   },
   // Added by user: 8 Shards of Respect (Epic)
   {
@@ -315,8 +329,17 @@ const characters = [
     weight: 1 / 10000,
     coins: 100000,
     icon: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="68" r="44" fill="#8b5e34" stroke="#4b2911" stroke-width="4"/><polygon points="26,34 38,10 52,34" fill="#8b5e34" stroke="#4b2911" stroke-width="4"/><polygon points="94,34 82,10 68,34" fill="#8b5e34" stroke="#4b2911" stroke-width="4"/><ellipse cx="44" cy="68" rx="8" ry="12" fill="#eef2ff"/><ellipse cx="76" cy="68" rx="8" ry="12" fill="#eef2ff"/><path d="M44 88 Q60 102 76 88" stroke="#1f2937" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M34 78 C38 82 46 84 50 78" stroke="#1f2937" stroke-width="4" fill="none"/><path d="M70 78 C74 82 82 84 86 78" stroke="#1f2937" stroke-width="4" fill="none"/></svg>`
-  }
-  ,{
+  },
+  {
+    id: 'riegelog-secret-1-67500',
+    name: 'RiegelOG',
+    tier: 'Secret',
+    chance: '1-67.5k',
+    weight: 1 / 67500,
+    coins: 675000,
+    icon: `<img src="images/riegelog.png" alt="RiegelOG" class="raster-icon" />`
+  },
+  {
     id: 'love-rare-1-72',
     name: 'Love',
     tier: 'Rare',
@@ -331,7 +354,7 @@ const characters = [
     chance: '1-24',
     weight: 1 / 24,
     coins: 24,
-    icon: `<svg viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lightning"><polygon points="36,10 80,10 54,62 84,62 30,130 50,72 18,72" fill="#fde047" stroke="#b45309" stroke-width="4"/><path d="M42 28 L54 18" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/><path d="M66 28 L78 18" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/><circle cx="62" cy="70" r="6" fill="#c2410c"/></svg>`
+    icon: `<img src="images/lightning.png" alt="Lightning" class="raster-icon" />`
   },
   {
     id: 'up-rare-1-66',
@@ -414,8 +437,8 @@ const characters = [
 const shinyCharacters = characters.map(character => {
   const match = String(character.chance).match(/^(\d+)-(\d+)$/);
   const shinyChance = match ? `${match[1]}-${Number(match[2]) * 10}` : character.chance;
-  // Shiny coins are based on the rarity denominator (e.g., 1-20 → 20 coins)
-  const shinyCoins = match ? Number(match[2]) * 10 : (character.coins || 0);
+  // Shiny coins are 2x the normal character coin value
+  const shinyCoins = (character.coins || 0) * 2;
   return {
     ...character,
     id: `${character.id}-shiny`,
@@ -490,6 +513,10 @@ function setIndexTab(tab) {
   renderIndexMenu();
 }
 
+function isPermanentSecretId(id) {
+  return /^(?:cat-secrett|riegelog)/i.test(String(id));
+}
+
 function renderIndexMenu() {
   indexList.innerHTML = '';
   const rolledEntries = allCharacters.filter(character => rolledCharacters[character.id]);
@@ -514,14 +541,14 @@ function renderIndexMenu() {
       </div>
       <div class="item-actions">
         <button class="view-button" data-id="${character.id}">View</button>
-        ${/^cat-secrett/i.test(character.id) ? '<button class="sell-button" disabled>Cannot sell</button>' : `<button class="sell-button" data-id="${character.id}">Sell</button>`}
+        ${isPermanentSecretId(character.id) ? '<button class="sell-button" disabled>Cannot sell</button>' : `<button class="sell-button" data-id="${character.id}">Sell</button>`}
       </div>
     `;
     indexList.appendChild(item);
     const viewBtn = item.querySelector('.view-button');
     const sellBtn = item.querySelector('.sell-button');
     if (viewBtn) viewBtn.addEventListener('click', () => openPreview(character));
-    if (sellBtn && !/^cat-secrett/i.test(character.id)) sellBtn.addEventListener('click', () => sellCharacter(character));
+    if (sellBtn && !isPermanentSecretId(character.id)) sellBtn.addEventListener('click', () => sellCharacter(character));
   });
 }
 
@@ -539,7 +566,7 @@ function sellCharacter(character) {
     alert('Invalid quantity');
     return;
   }
-  if (/^cat-secrett/i.test(character.id)) {
+  if (isPermanentSecretId(character.id)) {
     alert('This item cannot be sold.');
     return;
   }
@@ -581,10 +608,13 @@ function openPreview(character) {
   const title = document.getElementById('previewTitle');
   if (!modal || !body || !title) return;
   title.textContent = `${character.name} • ${character.tier}`;
+  const previewEarned = isPermanentSecretId(character.id)
+    ? (character.coins || 0)
+    : Math.floor((character.coins || 0) * (character.shiny ? 2 : 1));
   body.innerHTML = `
     <div class="preview-icon">${character.icon}</div>
     <div class="result-meta">${character.tier} • ${character.chance}</div>
-    <div class="result-meta">Earned ${/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * (character.shiny ? 3 : 1))} coin${(/^cat-secrett/i.test(character.id) ? 100000 : Math.floor((character.coins || 0) * (character.shiny ? 3 : 1))) === 1 ? '' : 's'}!</div>
+    <div class="result-meta">Earned ${previewEarned} coin${previewEarned === 1 ? '' : 's'}!</div>
   `;
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
@@ -672,6 +702,10 @@ function applyAdminChanges() {
   const luckValue = adminLuckBoostInput && adminLuckBoostInput.value.trim() !== ''
     ? Number(adminLuckBoostInput.value)
     : NaN;
+  const rebirths = adminRebirthCountInput ? Math.max(0, Math.floor(Number(adminRebirthCountInput.value) || 0)) : 0;
+  const luckPotions = adminLuckPotionAmountInput ? Math.max(0, Math.floor(Number(adminLuckPotionAmountInput.value) || 0)) : 0;
+  const coinPotions = adminCoinPotionAmountInput ? Math.max(0, Math.floor(Number(adminCoinPotionAmountInput.value) || 0)) : 0;
+  const shinyPotions = adminShinyPotionAmountInput ? Math.max(0, Math.floor(Number(adminShinyPotionAmountInput.value) || 0)) : 0;
   const actions = [];
 
   if (name) {
@@ -710,6 +744,26 @@ function applyAdminChanges() {
     actions.push(`Added ${coins} coins`);
   }
 
+  if (rebirths > 0) {
+    rebirthCount += rebirths;
+    actions.push(`Added ${rebirths} rebirth${rebirths === 1 ? '' : 's'}`);
+  }
+
+  if (luckPotions > 0) {
+    potions.luck += luckPotions;
+    actions.push(`Added ${luckPotions} luck potion${luckPotions === 1 ? '' : 's'}`);
+  }
+
+  if (coinPotions > 0) {
+    potions.coin += coinPotions;
+    actions.push(`Added ${coinPotions} coin potion${coinPotions === 1 ? '' : 's'}`);
+  }
+
+  if (shinyPotions > 0) {
+    potions.shiny += shinyPotions;
+    actions.push(`Added ${shinyPotions} shiny potion${shinyPotions === 1 ? '' : 's'}`);
+  }
+
   if (!Number.isNaN(luckValue)) {
     adminLuckBoost = luckValue / 100;
     if (adminLuckBoostInput) adminLuckBoostInput.value = String(luckValue);
@@ -724,6 +778,8 @@ function applyAdminChanges() {
   updateCoinCount();
   renderIndexMenu();
   updateUpgradeUI();
+  updatePotionUI();
+  updateRebirthUI();
   saveState();
   alert('Admin applied: ' + actions.join(', '));
 }
@@ -755,6 +811,7 @@ function isPotionActive(type) {
 function updatePotionUI() {
   const luckBtn = document.getElementById('useLuckPotionButton');
   const coinBtn = document.getElementById('useCoinPotionButton');
+  const shinyBtn = document.getElementById('useShinyPotionButton');
   if (luckBtn) {
     let txt = `Luck Potions: ${potions.luck}` + (isPotionActive('luck') ? ' (Active)' : '');
     if (isPotionActive('luck')) {
@@ -770,6 +827,14 @@ function updatePotionUI() {
       txt += ` - ${formatTimeRemaining(rem)}`;
     }
     coinBtn.textContent = txt;
+  }
+  if (shinyBtn) {
+    let txt = `Shiny Potions: ${potions.shiny}` + (isPotionActive('shiny') ? ' (Active)' : '');
+    if (isPotionActive('shiny')) {
+      const rem = activePotionExpiry.shiny - Date.now();
+      txt += ` - ${formatTimeRemaining(rem)}`;
+    }
+    shinyBtn.textContent = txt;
   }
   const goldenBtn = document.getElementById('goldenDiceButton');
   if (goldenBtn) {
@@ -797,7 +862,7 @@ function startPotionTimer() {
   potionTimerIntervalId = setInterval(() => {
     updatePotionUI();
     // if neither potion active, stop the interval
-    if (!isPotionActive('luck') && !isPotionActive('coin')) {
+    if (!isPotionActive('luck') && !isPotionActive('coin') && !isPotionActive('shiny')) {
       stopPotionTimer();
     }
   }, 1000);
@@ -906,6 +971,22 @@ function useCoinPotion() {
   showPopup(`Coin potion used: ${formatTimeRemaining(rem)} remaining`, 3000);
 }
 
+function useShinyPotion() {
+  if (potions.shiny <= 0) { alert('No shiny potions available'); return; }
+  potions.shiny -= 1;
+  const now = Date.now();
+  if (activePotionExpiry.shiny && activePotionExpiry.shiny > now) {
+    activePotionExpiry.shiny += SHINY_POTION_DURATION_MS;
+  } else {
+    activePotionExpiry.shiny = now + SHINY_POTION_DURATION_MS;
+  }
+  updatePotionUI();
+  startPotionTimer();
+  saveState();
+  const rem = Math.max(0, activePotionExpiry.shiny - now);
+  showPopup(`Shiny potion used: ${formatTimeRemaining(rem)} remaining`, 3000);
+}
+
 function toggleAutoRoll(btn) {
   if (!btn) btn = document.getElementById('autoRollToggle');
   if (!btn) return;
@@ -981,11 +1062,11 @@ function closeRebirthMenu() {
 function updateRebirthUI() {
   if (!rebirthInfo) return;
   const current = rebirthCount;
-  const curMult = rebirthMultipliers[current] || 1;
+  const curMult = getRebirthMultiplier(current);
   const next = Math.min(rebirthLimit, current + 1);
-  const nextMult = rebirthMultipliers[next] || curMult;
+  const nextMult = getRebirthMultiplier(next);
   const nextCost = rebirthCosts[next] || 0;
-  rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult}x<br/>Next rebirth: ${next} — Boost ${nextMult}x — Cost ${nextCost}`;
+  rebirthInfo.innerHTML = `Current rebirths: ${current} — Boost: ${curMult.toFixed(2)}x<br/>Next rebirth: ${next} — Boost ${nextMult.toFixed(2)}x — Cost ${nextCost}`;
   if (doRebirthButton) doRebirthButton.disabled = current >= rebirthLimit || coinTotal < nextCost;
 }
 
@@ -1002,7 +1083,7 @@ function doRebirth() {
   // reset account state as requested
   rollCount = 0;
   Object.keys(rolledCharacters).forEach(k => {
-    if (!/^cat-secrett/i.test(k)) delete rolledCharacters[k];
+    if (!isPermanentSecretId(k)) delete rolledCharacters[k];
   });
   upgrades.autoRoll = false;
   upgrades.luckTier = 0;
@@ -1349,7 +1430,7 @@ function getRollMessage(character) {
 }
 
 function showCharacterResult(character, earned) {
-  const displayEarned = typeof earned === 'number' ? earned : Math.floor((character.coins || 0) * (character.shiny ? 3 : 1));
+  const displayEarned = typeof earned === 'number' ? earned : Math.floor((character.coins || 0) * (character.shiny ? 2 : 1));
   resultEl.innerHTML = `
     <div class="result-icon">${character.icon}</div>
     <div class="result-title">${character.name}</div>
@@ -1375,8 +1456,8 @@ function showCharacterResult(character, earned) {
 }
 
 function showTwoResults(c1, c2, e1, e2) {
-  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * (c1.shiny ? 3 : 1));
-  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * (c2.shiny ? 3 : 1));
+  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * (c1.shiny ? 2 : 1));
+  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * (c2.shiny ? 2 : 1));
   resultEl.innerHTML = `
     <div class="two-results">
       <div class="result-block">
@@ -1405,9 +1486,9 @@ function showTwoResults(c1, c2, e1, e2) {
 }
 
 function showThreeResults(c1, c2, c3, e1, e2, e3) {
-  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * (c1.shiny ? 3 : 1));
-  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * (c2.shiny ? 3 : 1));
-  const displayed3 = typeof e3 === 'number' ? e3 : Math.floor((c3.coins || 0) * (c3.shiny ? 3 : 1));
+  const displayed1 = typeof e1 === 'number' ? e1 : Math.floor((c1.coins || 0) * (c1.shiny ? 2 : 1));
+  const displayed2 = typeof e2 === 'number' ? e2 : Math.floor((c2.coins || 0) * (c2.shiny ? 2 : 1));
+  const displayed3 = typeof e3 === 'number' ? e3 : Math.floor((c3.coins || 0) * (c3.shiny ? 2 : 1));
   resultEl.innerHTML = `
     <div class="three-results">
       <div class="result-block">
@@ -1531,7 +1612,8 @@ function startRolling() {
       }
     }
     updatePotionUI();
-    const character = weightedRandom(allCharacters);
+    const rollPool = isPotionActive('shiny') ? shinyCharacters : allCharacters;
+    const character = weightedRandom(rollPool);
     rollCount += 1;
     // Base coin multiplier is 1x; each coin upgrade tier adds +50% per tier.
     let coinMultiplier = 1 + (coinBoosts[upgrades.coinTier] || 0);
@@ -1541,8 +1623,8 @@ function startRolling() {
     if (/^cat-secrett/i.test(character.id)) {
       earnedCoins = 100000;
     } else {
-      // Base coins use the character's coins value. Shiny characters get a 3x multiplier.
-      const baseValue = (character.coins || 0) * (character.shiny ? 3 : 1);
+      // Base coins use the character's coins value. Shiny characters get a 2x multiplier.
+      const baseValue = (character.coins || 0) * (character.shiny ? 2 : 1);
       earnedCoins = Math.floor(baseValue * coinMultiplier * rebirthMultiplier);
     }
     coinTotal += earnedCoins;
@@ -1560,6 +1642,12 @@ function startRolling() {
       playPotionDropSound('coin');
       showPopup('You found a Coin Potion!', 3000);
     }
+    if (Math.random() < POTION_DROP_SHINY_CHANCE) {
+      potions.shiny = (potions.shiny || 0) + 1;
+      updatePotionUI();
+      playPotionDropSound('luck');
+      showPopup('You found a Shiny Potion!', 3000);
+    }
     updateRollCount();
     updateCoinCount();
     saveState();
@@ -1567,8 +1655,8 @@ function startRolling() {
     // perform second roll if active, before final display
     let character2 = null;
     if (upgrades.secondRoll) {
-      character2 = weightedRandom(allCharacters, { goldenMultiplier: 1 });
-      const baseValue2 = (character2.coins || 0) * (character2.shiny ? 3 : 1);
+      character2 = weightedRandom(rollPool, { goldenMultiplier: 1 });
+      const baseValue2 = (character2.coins || 0) * (character2.shiny ? 2 : 1);
       const earnedCoins2 = Math.floor(baseValue2 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins2;
       rolledCharacters[character2.id] = (rolledCharacters[character2.id] || 0) + 1;
@@ -1576,8 +1664,8 @@ function startRolling() {
     let character3 = null;
     let earnedCoins3;
     if (upgrades.thirdRoll) {
-      character3 = weightedRandom(allCharacters, { goldenMultiplier: 1 });
-      const baseValue3 = (character3.coins || 0) * (character3.shiny ? 3 : 1);
+      character3 = weightedRandom(rollPool, { goldenMultiplier: 1 });
+      const baseValue3 = (character3.coins || 0) * (character3.shiny ? 2 : 1);
       earnedCoins3 = Math.floor(baseValue3 * coinMultiplier * rebirthMultiplier);
       coinTotal += earnedCoins3;
       rolledCharacters[character3.id] = (rolledCharacters[character3.id] || 0) + 1;
@@ -1663,6 +1751,7 @@ if (rebirthMenu) rebirthMenu.querySelector('.index-overlay').addEventListener('c
 if (doRebirthButton) doRebirthButton.addEventListener('click', doRebirth);
 if (document.getElementById('useLuckPotionButton')) document.getElementById('useLuckPotionButton').addEventListener('click', useLuckPotion);
 if (document.getElementById('useCoinPotionButton')) document.getElementById('useCoinPotionButton').addEventListener('click', useCoinPotion);
+if (document.getElementById('useShinyPotionButton')) document.getElementById('useShinyPotionButton').addEventListener('click', useShinyPotion);
 if (closeAdminButton) closeAdminButton.addEventListener('click', closeAdminMenu);
 if (adminMenu) adminMenu.querySelector('.index-overlay').addEventListener('click', closeAdminMenu);
 if (adminApplyButton) adminApplyButton.addEventListener('click', applyAdminChanges);
